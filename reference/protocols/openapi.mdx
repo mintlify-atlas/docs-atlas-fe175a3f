@@ -1,0 +1,229 @@
+---
+title: OpenAPI Protocol
+description: Call services defined by OpenAPI specifications with the Serverless Workflow OpenAPI protocol
+---
+
+The OpenAPI Call enables workflows to interact with external services described by [OpenAPI](https://www.openapis.org) specifications.
+
+## Overview
+
+OpenAPI calls allow you to invoke operations defined in OpenAPI documents, automatically handling parameter binding, request formatting, and response parsing based on the specification.
+
+## Properties
+
+<ParamField path="document" type="externalResource" required>
+  The OpenAPI document that defines the operation to call.
+  
+  Can reference OpenAPI 2.0 (Swagger), 3.0, or 3.1 specifications.
+</ParamField>
+
+<ParamField path="operationId" type="string" required>
+  The id of the OpenAPI operation to call.
+  
+  Must match an operationId defined in the OpenAPI document.
+</ParamField>
+
+<ParamField path="parameters" type="map[string, any]">
+  A name/value mapping of the parameters, if any, of the OpenAPI operation to call.
+  
+  Parameter names must match those defined in the operation's parameters section.
+</ParamField>
+
+<ParamField path="authentication" type="authentication">
+  The authentication policy, or the name of the authentication policy, to use when calling the OpenAPI operation.
+</ParamField>
+
+<ParamField path="output" type="string" default="content">
+  The OpenAPI call's output format.
+  
+  **Supported values:**
+  - `raw` - Outputs the base-64 encoded HTTP response content, if any
+  - `content` - Outputs the content of HTTP response, possibly deserialized
+  - `response` - Outputs the full HTTP response object
+</ParamField>
+
+<ParamField path="redirect" type="boolean" default="false">
+  Specifies whether redirection status codes (300-399) should be treated as errors.
+  
+  - If `false`, runtimes must raise an error for response status codes outside the 200-299 range
+  - If `true`, they must raise an error for status codes outside the 200-399 range
+</ParamField>
+
+## External Resource
+
+The `document` property references an external resource:
+
+<ParamField path="document.endpoint" type="string | endpoint" required>
+  The endpoint at which to get the OpenAPI document.
+</ParamField>
+
+<ParamField path="document.name" type="string">
+  The name, if any, of the defined resource.
+</ParamField>
+
+## Examples
+
+### Basic OpenAPI Call
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-example
+  version: '0.1.0'
+do:
+  - findPet:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findPetsByStatus
+        parameters:
+          status: available
+```
+
+### With Multiple Parameters
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-params-example
+  version: '0.1.0'
+do:
+  - searchPets:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findPetsByTags
+        parameters:
+          tags:
+            - dog
+            - friendly
+          limit: 10
+```
+
+### With Authentication
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-auth-example
+  version: '0.1.0'
+use:
+  authentications:
+    petStoreApiKey:
+      bearer:
+        token: ${ .secrets.petStoreToken }
+do:
+  - placeOrder:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: placeOrder
+        parameters:
+          body:
+            petId: 123
+            quantity: 1
+            shipDate: '2024-01-15T10:00:00Z'
+        authentication:
+          use: petStoreApiKey
+```
+
+### Using as Reusable Function
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-function-example
+  version: '0.1.0'
+use:
+  functions:
+    getAvailablePets:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findPetsByStatus
+        parameters:
+          status: available
+do:
+  - getPets:
+      call: getAvailablePets
+      output:
+        as: "$input + { availablePets: [.[] | select(.category.name == \"dog\")] }"
+```
+
+### With Redirection Handling
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-redirect-example
+  version: '0.1.0'
+do:
+  - callApi:
+      call: openapi
+      with:
+        document:
+          endpoint: https://api.example.com/openapi.json
+        operationId: getData
+        redirect: true
+```
+
+### Full Response Output
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: openapi-response-example
+  version: '0.1.0'
+do:
+  - callWithFullResponse:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: getPetById
+        parameters:
+          petId: 1
+        output: response
+```
+
+## Parameter Mapping
+
+OpenAPI operations can have parameters in different locations:
+
+- **Path parameters**: Embedded in the URL path (e.g., `/pets/{petId}`)
+- **Query parameters**: Appended to the URL (e.g., `?status=available`)
+- **Header parameters**: Sent as HTTP headers
+- **Cookie parameters**: Sent as cookies
+- **Body parameters**: Sent in the request body
+
+The runtime automatically maps the provided parameters to the correct location based on the OpenAPI specification.
+
+## Benefits
+
+- **Type Safety**: Parameters and responses are validated against the OpenAPI schema
+- **Auto-Discovery**: Operation details are extracted from the OpenAPI document
+- **Documentation**: OpenAPI documents serve as living documentation
+- **Tooling**: Leverage existing OpenAPI tooling and generators
+
+## Best Practices
+
+- **Cache OpenAPI Documents**: Reference remote OpenAPI documents that are cached and versioned
+- **Use OperationIds**: Ensure all operations in your OpenAPI spec have unique operationIds
+- **Version Your APIs**: Include version information in the OpenAPI document endpoint URL
+- **Handle Errors**: Use try/catch blocks to handle API errors gracefully
+
+## Related
+
+- [HTTP Protocol](/reference/protocols/http) - For direct HTTP calls without OpenAPI
+- [AsyncAPI Protocol](/reference/protocols/asyncapi) - For event-driven APIs
+- [Authentication](/reference/authentication) - Authentication schemes for API calls

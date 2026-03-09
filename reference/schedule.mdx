@@ -1,0 +1,274 @@
+---
+title: Schedule
+description: Reference for configuring workflow schedules
+---
+
+The `schedule` property configures when and how a workflow should be executed automatically. Workflows can be scheduled using time intervals, CRON expressions, delay durations, or event triggers.
+
+## Properties
+
+<ParamField path="every" type="duration">
+  Specifies the duration of the interval at which the workflow should be executed.
+  
+  Unlike `after`, this option will run the workflow regardless of whether the previous run is still in progress.
+  
+  **Required** when no other property has been set.
+</ParamField>
+
+<ParamField path="cron" type="string">
+  Specifies the schedule using a CRON expression.
+  
+  Example: `'0 0 * * *'` for daily at midnight.
+  
+  **Required** when no other property has been set.
+</ParamField>
+
+<ParamField path="after" type="duration">
+  Specifies a delay duration that the workflow must wait before starting again after it completes.
+  
+  In other words, when this workflow completes, it should run again after the specified amount of time.
+  
+  **Required** when no other property has been set.
+</ParamField>
+
+<ParamField path="on" type="eventConsumptionStrategy">
+  Specifies the events that trigger the workflow execution.
+  
+  See [Event Consumption Strategy](#event-consumption-strategy) for details.
+  
+  **Required** when no other property has been set.
+</ParamField>
+
+## Duration Format
+
+Durations can be defined using properties or ISO 8601 strings:
+
+<ParamField path="days" type="integer">
+  Number of days, if any.
+</ParamField>
+
+<ParamField path="hours" type="integer">
+  Number of hours, if any.
+</ParamField>
+
+<ParamField path="minutes" type="integer">
+  Number of minutes, if any.
+</ParamField>
+
+<ParamField path="seconds" type="integer">
+  Number of seconds, if any.
+</ParamField>
+
+<ParamField path="milliseconds" type="integer">
+  Number of milliseconds, if any.
+</ParamField>
+
+## Event Consumption Strategy
+
+When using event-based scheduling, configure how the workflow consumes events:
+
+<ParamField path="all" type="eventFilter[]">
+  Configures the workflow to wait for all defined events before starting execution.
+  
+  **Required** if `any` and `one` have not been set.
+</ParamField>
+
+<ParamField path="any" type="eventFilter[]">
+  Configures the workflow to wait for any of the defined events before starting execution.
+  
+  **Required** if `all` and `one` have not been set.
+  
+  If empty, listens to all incoming events.
+</ParamField>
+
+<ParamField path="one" type="eventFilter">
+  Configures the workflow to wait for the defined event before starting execution.
+  
+  **Required** if `all` and `any` have not been set.
+</ParamField>
+
+### Event Filter
+
+<ParamField path="with" type="eventProperties" required>
+  A name/value mapping of the attributes filtered events must define.
+  
+  Supports both regular expressions and runtime expressions.
+</ParamField>
+
+<ParamField path="correlate" type="map[string, correlation]">
+  A name/definition mapping of the correlations to attempt when filtering events.
+</ParamField>
+
+## Examples
+
+### Interval-Based Schedule (Every)
+
+Run the workflow every 5 minutes:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: periodic-task
+  version: '1.0.0'
+schedule:
+  every:
+    minutes: 5
+do:
+  - performTask:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/task
+```
+
+### CRON Schedule
+
+Run the workflow daily at midnight:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: daily-report
+  version: '1.0.0'
+schedule:
+  cron: '0 0 * * *'
+do:
+  - generateReport:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/reports/generate
+```
+
+Run every Monday at 9:00 AM:
+
+```yaml
+schedule:
+  cron: '0 9 * * 1'
+```
+
+### Delay-Based Schedule (After)
+
+Run the workflow again 1 hour after completion:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: recurring-job
+  version: '1.0.0'
+schedule:
+  after:
+    hours: 1
+do:
+  - executeJob:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/job/execute
+```
+
+Run again 30 seconds after completion:
+
+```yaml
+schedule:
+  after:
+    seconds: 30
+```
+
+### Event-Based Schedule
+
+Trigger workflow on a specific event:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: order-processor
+  version: '1.0.0'
+schedule:
+  on:
+    one:
+      with:
+        type: com.example.order.placed
+        source: https://api.example.com
+do:
+  - processOrder:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/orders/process
+```
+
+Trigger on any of multiple events:
+
+```yaml
+schedule:
+  on:
+    any:
+      - with:
+          type: com.example.payment.received
+      - with:
+          type: com.example.payment.confirmed
+```
+
+Trigger when all events are received:
+
+```yaml
+schedule:
+  on:
+    all:
+      - with:
+          type: com.example.payment.received
+      - with:
+          type: com.example.inventory.checked
+      - with:
+          type: com.example.shipping.confirmed
+```
+
+### Complex Duration
+
+Run every 2 days, 3 hours, 15 minutes, and 30 seconds:
+
+```yaml
+schedule:
+  every:
+    days: 2
+    hours: 3
+    minutes: 15
+    seconds: 30
+```
+
+## CRON Expression Reference
+
+CRON expressions consist of 5 fields:
+
+```
+┌───────────── minute (0 - 59)
+│ ┌───────────── hour (0 - 23)
+│ │ ┌───────────── day of month (1 - 31)
+│ │ │ ┌───────────── month (1 - 12)
+│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday=0)
+│ │ │ │ │
+* * * * *
+```
+
+### Common CRON Examples
+
+- `0 * * * *` - Every hour
+- `0 0 * * *` - Daily at midnight
+- `0 9 * * 1-5` - Weekdays at 9:00 AM
+- `0 0 1 * *` - First day of every month
+- `*/15 * * * *` - Every 15 minutes
+- `0 0,12 * * *` - Twice a day (midnight and noon)
+
+## Usage Notes
+
+- Only **one** scheduling property should be set (`every`, `cron`, `after`, or `on`)
+- The `every` schedule runs the workflow at fixed intervals, regardless of execution status
+- The `after` schedule waits for the workflow to complete before starting the countdown
+- CRON schedules follow standard CRON syntax
+- Event-based schedules allow workflows to react to external triggers
+- Durations can use any combination of days, hours, minutes, seconds, and milliseconds

@@ -1,0 +1,173 @@
+---
+title: Runtimes
+description: Dedicated environments for executing Serverless Workflows
+---
+
+Serverless Workflow runtimes are dedicated environments for executing workflows defined using the Serverless Workflow DSL. These runtimes ensure seamless deployment and operation within diverse runtime environments.
+
+Runtimes provide the infrastructure and execution engines necessary to run your workflows in production, handling orchestration, state management, and integration with external services.
+
+## Available Runtimes
+
+<CardGroup cols={2}>
+  <Card 
+    title="Apache KIE SonataFlow" 
+    icon="music" 
+    href="https://sonataflow.org"
+  >
+    **Production-Ready Enterprise Runtime**
+    
+    Apache KIE SonataFlow is a tool for building cloud-native workflow applications. Use it for services and events orchestration and choreography.
+    
+    - Cloud-native architecture
+    - Kubernetes integration
+    - Event-driven orchestration
+    - Enterprise support
+  </Card>
+  
+  <Card 
+    title="Java SDK Reference Implementation" 
+    icon="java" 
+    href="https://github.com/serverlessworkflow/sdk-java/tree/main/impl"
+  >
+    **Fully Compliant Java Runtime**
+    
+    Full compliant Java implementation of the Serverless Workflow specification, providing a reference runtime for testing and development.
+    
+    - Complete specification compliance
+    - Reference implementation
+    - Testing and validation
+    - Educational resource
+  </Card>
+  
+  <Card 
+    title="Lemline" 
+    icon="bolt" 
+    href="https://github.com/lemline/lemline"
+  >
+    **Highly Scalable Messaging Runtime**
+    
+    Lemline is a highly scalable runtime running on top of your existing messaging infrastructure.
+    
+    - Messaging-based architecture
+    - High scalability
+    - Existing infrastructure integration
+    - Event-driven workflows
+  </Card>
+  
+  <Card 
+    title="Synapse" 
+    icon="network-wired" 
+    href="https://github.com/serverlessworkflow/synapse"
+  >
+    **Cross-Platform Workflow Platform**
+    
+    Synapse is a scalable, cross-platform, fully customizable platform for managing and running Serverless Workflows.
+    
+    - Cross-platform support
+    - Fully customizable
+    - Scalable architecture
+    - Workflow management
+  </Card>
+</CardGroup>
+
+## Runtime Capabilities
+
+Serverless Workflow runtimes typically provide:
+
+### Execution Engine
+
+- Parse and execute workflow definitions
+- Manage workflow state and context
+- Handle task orchestration and coordination
+- Support for concurrent and parallel execution
+
+### Integration
+
+- HTTP/HTTPS service invocation
+- gRPC protocol support
+- OpenAPI and AsyncAPI integration
+- Event consumption and emission
+- Function invocation (FaaS)
+
+### Reliability
+
+- Error handling and retry mechanisms
+- Timeout management
+- Transaction support
+- State persistence and recovery
+
+### Observability
+
+- Workflow execution logging
+- Metrics and monitoring
+- Distributed tracing
+- Debugging capabilities
+
+### Scalability
+
+- Horizontal scaling
+- Load balancing
+- Resource optimization
+- High availability
+
+## Choosing a Runtime
+
+When selecting a runtime for your workflows, consider:
+
+| Factor | Consideration |
+|--------|---------------|
+| **Deployment Target** | Cloud, on-premises, Kubernetes, serverless platforms |
+| **Scale Requirements** | Expected throughput, concurrency needs, resource constraints |
+| **Integration Needs** | Required protocols, service dependencies, existing infrastructure |
+| **Operational Requirements** | Monitoring, logging, debugging, support needs |
+| **Customization** | Extensibility, plugin support, custom task types |
+| **Compliance** | Specification version support, conformance testing |
+
+## Getting Started
+
+### Apache KIE SonataFlow
+
+SonataFlow provides comprehensive documentation for getting started:
+
+```bash
+# Install the SonataFlow CLI
+npm install -g @kie/sonataflow-cli
+
+# Create a new workflow project
+sonataflow create my-workflow
+
+# Run the workflow
+sonataflow run my-workflow
+```
+
+Visit [sonataflow.org](https://sonataflow.org) for detailed guides and tutorials.
+
+### Synapse
+
+Synapse can be deployed as a standalone application or in container environments:
+
+```bash
+# Run with Docker
+docker run -p 8080:8080 ghcr.io/serverlessworkflow/synapse
+
+# Deploy to Kubernetes
+kubectl apply -f https://raw.githubusercontent.com/serverlessworkflow/synapse/main/deploy/kubernetes.yaml
+```
+
+## Conformance Testing
+
+All runtimes can be tested for conformance using the [Conformance Test Kit (CTK)](/ecosystem/ctk/overview). The CTK ensures that runtime implementations adhere to the Serverless Workflow specification.
+
+See the [Conformance Testing guide](/ecosystem/ctk/conformance-testing) for details on validating your runtime implementation.
+
+## Contributing a Runtime
+
+Want to contribute a new runtime to the ecosystem?
+
+1. Implement the Serverless Workflow specification
+2. Validate with the CTK conformance tests
+3. Document your runtime implementation
+4. Submit a PR to add your runtime to this page
+
+Join the community on [Slack](https://slack.cncf.io/) (#serverless-workflow) to discuss runtime development and get support from maintainers.

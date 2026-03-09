@@ -1,0 +1,186 @@
+---
+title: HTTP Protocol
+description: Call external services over HTTP with the Serverless Workflow HTTP protocol
+---
+
+The HTTP Call enables workflows to interact with external services over HTTP, supporting standard REST API operations.
+
+## Overview
+
+HTTP calls allow you to make HTTP requests to external endpoints with full control over methods, headers, query parameters, and request bodies.
+
+## Properties
+
+<ParamField path="method" type="string" required>
+  The HTTP request method.
+  
+  Supported values: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+</ParamField>
+
+<ParamField path="endpoint" type="string | endpoint" required>
+  An URI or an object that describes the HTTP endpoint to call.
+  
+  Can be a simple string URI or an [endpoint object](#endpoint-object) with authentication configuration.
+</ParamField>
+
+<ParamField path="headers" type="map[string, string]">
+  A name/value mapping of the HTTP headers to use, if any.
+</ParamField>
+
+<ParamField path="body" type="any">
+  The HTTP request body, if any.
+</ParamField>
+
+<ParamField path="query" type="map[string, any]">
+  A name/value mapping of the query parameters to use, if any.
+</ParamField>
+
+<ParamField path="output" type="string" default="content">
+  The HTTP call's output format.
+  
+  **Supported values:**
+  - `raw` - Outputs the base-64 encoded HTTP response content, if any
+  - `content` - Outputs the content of HTTP response, possibly deserialized
+  - `response` - Outputs the full HTTP response object
+</ParamField>
+
+<ParamField path="redirect" type="boolean" default="false">
+  Specifies whether redirection status codes (300-399) should be treated as errors.
+  
+  - If `false`, runtimes must raise an error for response status codes outside the 200-299 range
+  - If `true`, they must raise an error for status codes outside the 200-399 range
+</ParamField>
+
+## Endpoint Object
+
+When `endpoint` is an object:
+
+<ParamField path="endpoint.uri" type="string" required>
+  The endpoint's URI.
+</ParamField>
+
+<ParamField path="endpoint.authentication" type="authentication">
+  The authentication policy to use.
+</ParamField>
+
+## Examples
+
+### Basic GET Request
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: http-get-example
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: https://petstore.swagger.io/v2/pet/1
+```
+
+### POST with Body
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: http-post-example
+  version: '0.1.0'
+do:
+  - createUser:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/users
+        headers:
+          content-type: application/json
+        body:
+          firstName: John
+          lastName: Doe
+          email: john.doe@example.com
+```
+
+### Using Query Parameters
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: http-query-params
+  version: '1.0.0'
+do:
+  - searchStarWarsCharacters:
+      call: http
+      with:
+        method: get
+        endpoint: https://swapi.dev/api/people/
+        query:
+          search: ${.searchQuery}
+```
+
+### Endpoint Interpolation
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: http-endpoint-interpolation
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: ${ "https://petstore.swagger.io/v2/pet/\(.petId)" }
+```
+
+### With Authentication
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: http-auth-example
+  version: '0.1.0'
+use:
+  authentications:
+    petStoreOAuth2:
+      oauth2:
+        authority: https://petstore.swagger.io/.well-known/openid-configuration
+        grant: client_credentials
+        client:
+          id: workflow-runtime
+          secret: "**********"
+        scopes: [ api ]
+        audiences: [ runtime ]
+do:
+  - submitOrder:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://petstore.swagger.io/v2/store/order
+          authentication:
+            use: petStoreOAuth2
+        body:
+          petId: 123
+          quantity: 1
+```
+
+## HTTP Response Format
+
+When using `output: response`, the response object includes:
+
+- `request` - The HTTP request that was sent
+- `statusCode` - The HTTP response status code
+- `headers` - The HTTP response headers, if any
+- `content` - The HTTP response content, if any (deserialized or base-64 encoded)
+
+## Related
+
+- [OpenAPI Protocol](/reference/protocols/openapi) - For calling services defined by OpenAPI specifications
+- [Authentication](/reference/authentication) - Authentication schemes for HTTP calls
+- [Endpoint Configuration](/reference/endpoint) - Endpoint configuration options

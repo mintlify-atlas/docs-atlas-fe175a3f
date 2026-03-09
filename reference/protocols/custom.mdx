@@ -1,0 +1,311 @@
+---
+title: Custom Protocol
+description: Extend the Serverless Workflow with custom protocol implementations
+---
+
+Serverless Workflow supports extending the built-in protocols (HTTP, gRPC, OpenAPI, AsyncAPI) with custom protocol implementations.
+
+## Overview
+
+While Serverless Workflow provides standard protocols for most use cases, you can define custom call functions to integrate with proprietary systems, legacy protocols, or emerging standards.
+
+## Creating Custom Functions
+
+Custom protocols are implemented as reusable functions in the workflow's `use.functions` section.
+
+## Basic Pattern
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: custom-protocol-example
+  version: '0.1.0'
+use:
+  functions:
+    myCustomCall:
+      call: http  # Base on existing protocol
+      with:
+        method: post
+        endpoint: https://custom-system.example.com/api/v1/action
+        headers:
+          X-Custom-Header: custom-value
+do:
+  - invokeCustom:
+      call: myCustomCall
+      with:
+        body:
+          data: ${ .inputData }
+```
+
+## Common Custom Protocol Patterns
+
+### SOAP Protocol
+
+Wrap SOAP calls using HTTP:
+
+```yaml
+use:
+  functions:
+    callSoapService:
+      call: http
+      with:
+        method: post
+        endpoint: https://soap-service.example.com/service
+        headers:
+          Content-Type: text/xml
+          SOAPAction: "http://example.com/GetData"
+        body: |
+          <?xml version="1.0"?>
+          <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+            <soap:Body>
+              <GetData xmlns="http://example.com">
+                <Id>${ .dataId }</Id>
+              </GetData>
+            </soap:Body>
+          </soap:Envelope>
+```
+
+### GraphQL Protocol
+
+Implement GraphQL queries:
+
+```yaml
+use:
+  functions:
+    graphqlQuery:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/graphql
+        headers:
+          Content-Type: application/json
+        body:
+          query: |
+            query GetUser($id: ID!) {
+              user(id: $id) {
+                id
+                name
+                email
+              }
+            }
+          variables:
+            id: ${ .userId }
+```
+
+### Custom Binary Protocol
+
+Use containers to implement custom protocols:
+
+```yaml
+use:
+  functions:
+    customBinaryCall:
+      run:
+        container:
+          image: myorg/custom-protocol-client:v1
+          environment:
+            PROTOCOL_HOST: custom-server.example.com
+            PROTOCOL_PORT: "9999"
+          stdin: ${ .requestData | @base64 }
+```
+
+### Wrapper for Third-Party SDK
+
+Run scripts that use third-party SDKs:
+
+```yaml
+use:
+  functions:
+    callThirdPartyApi:
+      run:
+        script:
+          language: python
+          code: |
+            import third_party_sdk
+            import json
+            import sys
+            
+            input_data = json.loads(sys.stdin.read())
+            client = third_party_sdk.Client(api_key=input_data['apiKey'])
+            result = client.call_method(input_data['params'])
+            print(json.dumps(result))
+          stdin: ${ . | tojson }
+```
+
+## Protocol Extension with MCP
+
+For AI-driven integrations, use the Model Context Protocol (MCP):
+
+```yaml
+do:
+  - callMcpTool:
+      call: mcp
+      with:
+        method: tools/call
+        parameters:
+          name: custom_tool
+          arguments:
+            param1: value1
+        transport:
+          stdio:
+            command: npx
+            arguments: [ custom-mcp-server@latest ]
+```
+
+## Advanced Patterns
+
+### Protocol with Retry Logic
+
+```yaml
+use:
+  retries:
+    customRetry:
+      delay:
+        seconds: 2
+      backoff:
+        exponential: {}
+      limit:
+        attempt:
+          count: 3
+  functions:
+    resilientCustomCall:
+      call: http
+      with:
+        method: post
+        endpoint: https://unreliable-service.example.com/api
+        body: ${ . }
+try:
+  - invokeWithRetry:
+      call: resilientCustomCall
+      with:
+        data: ${ .payload }
+catch:
+  retry: customRetry
+```
+
+### Protocol with Custom Authentication
+
+```yaml
+use:
+  authentications:
+    customAuth:
+      bearer:
+        token: ${ .secrets.customToken }
+  functions:
+    authenticatedCustomCall:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://custom-api.example.com/resource
+          authentication:
+            use: customAuth
+```
+
+### Multi-Step Protocol Workflow
+
+```yaml
+use:
+  functions:
+    customProtocolHandshake:
+      do:
+        - initiate:
+            call: http
+            with:
+              method: post
+              endpoint: https://custom-system.example.com/init
+              body:
+                clientId: workflow-runtime
+        - authenticate:
+            call: http
+            with:
+              method: post
+              endpoint: https://custom-system.example.com/auth
+              headers:
+                X-Session-Id: ${ .sessionId }
+              body:
+                token: ${ .secrets.apiToken }
+        - execute:
+            call: http
+            with:
+              method: post
+              endpoint: https://custom-system.example.com/execute
+              headers:
+                X-Session-Id: ${ .sessionId }
+                X-Auth-Token: ${ .authToken }
+              body: ${ .requestPayload }
+```
+
+## Best Practices
+
+### Documentation
+
+- Document custom protocols clearly in the workflow metadata
+- Provide examples of input/output schemas
+- Include error handling documentation
+
+### Reusability
+
+- Define custom protocols as reusable functions in `use.functions`
+- Use catalogs to share custom protocols across workflows
+- Version custom protocol implementations
+
+### Error Handling
+
+- Always wrap custom protocol calls in try/catch blocks
+- Define appropriate retry policies
+- Provide meaningful error messages
+
+### Security
+
+- Never hardcode credentials in custom protocol definitions
+- Use the secrets mechanism for sensitive data
+- Apply appropriate authentication policies
+
+### Performance
+
+- Consider using containers for heavy protocol implementations
+- Cache protocol initialization where possible
+- Set appropriate timeouts
+
+## Testing Custom Protocols
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: test-custom-protocol
+  version: '0.1.0'
+use:
+  extensions:
+    - mockCustomProtocol:
+        extend: call
+        when: $task.call == "customProtocol"
+        before:
+          - mock:
+              set:
+                result: { status: "success", data: "mocked" }
+              then: exit
+do:
+  - testCall:
+      call: customProtocol
+      with:
+        param: value
+```
+
+## Runtime Support
+
+Custom protocols are ultimately executed by the workflow runtime. Ensure your runtime supports:
+
+- The base protocol you're building on (HTTP, gRPC, container, script)
+- Any required libraries or dependencies
+- The computational resources needed
+
+## Related
+
+- [HTTP Protocol](/reference/protocols/http) - Base HTTP protocol
+- [gRPC Protocol](/reference/protocols/grpc) - Base gRPC protocol
+- [Run Task](/reference/tasks/run) - Execute containers and scripts
+- [Functions](/reference/functions) - Define reusable functions
+- [Catalogs](/reference/catalogs) - Share functions across workflows

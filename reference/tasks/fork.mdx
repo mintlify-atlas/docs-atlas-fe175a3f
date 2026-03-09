@@ -1,0 +1,50 @@
+---
+title: Fork Task
+description: Execute multiple subtasks concurrently
+---
+
+Allows workflows to execute multiple subtasks concurrently, enabling parallel processing and improving the overall efficiency of the workflow. By defining a set of subtasks to perform concurrently, the Fork task facilitates the execution of complex operations in parallel, ensuring that multiple tasks can be executed simultaneously.
+
+## Properties
+
+<ParamField path="fork.branches" type="map[string, task]">
+  The tasks to perform concurrently.
+</ParamField>
+
+<ParamField path="fork.compete" type="boolean" default={false}>
+  Indicates whether or not the concurrent tasks are racing against each other, with a single possible winner, which sets the composite task's output.
+  
+  - If set to `false`, the task returns an array that includes the outputs from each branch, preserving the order in which the branches are declared
+  - If set to `true`, the task returns only the output of the winning branch
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: fork-example
+  version: '0.1.0'
+do:
+  - raiseAlarm:
+      fork:
+        compete: true
+        branches:
+          - callNurse:
+              call: http
+              with:
+                method: put
+                endpoint: https://fake-hospital.com/api/v3/alert/nurses
+                body:
+                  patientId: ${ .patient.fullName }
+                  room: ${ .room.number }
+          - callDoctor:
+              call: http
+              with:
+                method: put
+                endpoint: https://fake-hospital.com/api/v3/alert/doctor
+                body:
+                  patientId: ${ .patient.fullName }
+                  room: ${ .room.number }
+```

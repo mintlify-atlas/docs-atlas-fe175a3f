@@ -1,0 +1,191 @@
+---
+title: Workflow
+description: Complete reference for the Workflow definition in Serverless Workflow DSL
+---
+
+A workflow serves as a blueprint outlining the series of tasks required to execute a specific business operation. It details the sequence in which tasks must be completed, guiding users through the process from start to finish, and helps streamline operations, ensure consistency, and optimize efficiency within an organization.
+
+## Properties
+
+<ParamField path="document" type="document" required>
+  Documents the defined workflow. See [Document](#document) for details.
+</ParamField>
+
+<ParamField path="input" type="input">
+  Configures the workflow's input. See [Input/Output](/reference/input-output) for details.
+</ParamField>
+
+<ParamField path="use" type="use">
+  Defines the workflow's reusable components, if any. See [Use](#use) for details.
+</ParamField>
+
+<ParamField path="do" type="map[string, task]" required>
+  The task(s) that must be performed by the workflow.
+</ParamField>
+
+<ParamField path="timeout" type="string | timeout">
+  The configuration, if any, of the workflow's timeout.
+  
+  If a `string`, must be the name of a timeout defined in the workflow's reusable components.
+</ParamField>
+
+<ParamField path="output" type="output">
+  Configures the workflow's output. See [Input/Output](/reference/input-output) for details.
+</ParamField>
+
+<ParamField path="schedule" type="schedule">
+  Configures the workflow's schedule, if any. See [Schedule](/reference/schedule) for details.
+</ParamField>
+
+<ParamField path="evaluate" type="evaluate">
+  Configures runtime expression evaluation.
+</ParamField>
+
+## Document
+
+Documents the workflow definition.
+
+<ParamField path="dsl" type="string" required>
+  The version of the DSL used to define the workflow.
+</ParamField>
+
+<ParamField path="namespace" type="string" required>
+  The workflow's namespace.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The workflow's name.
+</ParamField>
+
+<ParamField path="version" type="string" required>
+  The workflow's [semantic version](https://semver.org/).
+</ParamField>
+
+<ParamField path="title" type="string">
+  The workflow's title.
+</ParamField>
+
+<ParamField path="summary" type="string">
+  The workflow's Markdown summary.
+</ParamField>
+
+<ParamField path="tags" type="map[string, string]">
+  A key/value mapping of the workflow's tags, if any.
+</ParamField>
+
+<ParamField path="metadata" type="map">
+  Additional information about the workflow.
+</ParamField>
+
+## Evaluate
+
+Configures a workflow's runtime expression evaluation.
+
+<ParamField path="language" type="string" required>
+  The language used for writing runtime expressions.
+  
+  Defaults to `jq`.
+</ParamField>
+
+<ParamField path="mode" type="string" required>
+  The runtime expression evaluation mode.
+  
+  **Supported values:**
+  - `strict`: requires all expressions to be enclosed within `${ }` for proper identification and evaluation.
+  - `loose`: evaluates any value provided. If the evaluation fails, it results in a string with the expression as its content.
+  
+  Defaults to `strict`.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: order-pet
+  version: '0.1.0'
+  title: Order Pet - 1.0.0
+  summary: >
+    # Order Pet - 1.0.0
+    ## Table of Contents
+    - [Description](#description)
+    - [Requirements](#requirements)
+    ## Description
+    A sample workflow used to process an hypothetic pet order using the [PetStore API](https://petstore.swagger.io/)
+    ## Requirements
+    ### Secrets
+    - my-oauth2-secret
+use:
+  authentications:
+    petStoreOAuth2:
+      oauth2: 
+        authority: https://petstore.swagger.io/.well-known/openid-configuration
+        grant: client_credentials
+        client:
+          id: workflow-runtime
+          secret: "**********"
+        scopes: [ api ]
+        audiences: [ runtime ]
+  extensions:
+    - externalLogging:
+        extend: all
+        before:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: ${ "Executing task '\($task.reference)'..." }
+        after:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: ${ "Executed task '\($task.reference)'..." }
+  functions:
+    getAvailablePets:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findByStatus
+        parameters:
+          status: available
+  secrets:
+    - my-oauth2-secret
+do:
+  - getAvailablePets:
+      call: getAvailablePets
+      output:
+        as: "$input + { availablePets: [.[] | select(.category.name == \"dog\" and (.tags[] | .breed == $input.order.breed))] }"
+  - submitMatchesByMail:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://fake.smtp.service.com/email/send
+          authentication: 
+            use: petStoreOAuth2
+        body:
+          from: noreply@fake.petstore.com
+          to: ${ .order.client.email }
+          subject: Candidates for Adoption
+          body: >
+            Hello ${ .order.client.preferredDisplayName }!
+
+            Following your interest to adopt a dog, here is a list of candidates that you might be interested in:
+
+            ${ .pets | map("-\(.name)") | join("\n") }
+
+            Please do not hesistate to contact us at info@fake.petstore.com if your have questions.
+
+            Hope to hear from you soon!
+
+            ----------------------------------------------------------------------------------------------
+            DO NOT REPLY
+            ----------------------------------------------------------------------------------------------
+```

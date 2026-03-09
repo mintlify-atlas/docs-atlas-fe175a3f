@@ -1,0 +1,153 @@
+---
+title: Examples Overview
+description: Comprehensive collection of Serverless Workflow specification examples
+---
+
+This section provides real-world examples demonstrating various features and capabilities of the Serverless Workflow specification. Each example is designed to illustrate specific concepts and patterns you can use in your own workflows.
+
+## Example Categories
+
+### Basic Workflows
+
+Learn the fundamental building blocks of serverless workflows:
+
+- **Task Execution** - Sequential and parallel task execution patterns
+- **Data Manipulation** - Setting and transforming workflow data
+- **Control Flow** - Conditional logic, loops, and branching
+- **Subworkflows** - Composing workflows from reusable components
+
+[View Basic Workflow Examples →](/examples/basic-workflows)
+
+### Event-Driven Workflows
+
+Explore event-driven patterns and reactive workflows:
+
+- **Event Listeners** - Waiting for and consuming events
+- **Event Emission** - Publishing events from workflows
+- **Event Correlation** - Correlating multiple events together
+- **Scheduled Workflows** - Cron-based and event-triggered scheduling
+
+[View Event-Driven Examples →](/examples/event-driven)
+
+### Service Orchestration
+
+Integrate with external services and APIs:
+
+- **HTTP/REST APIs** - Calling REST endpoints with various configurations
+- **OpenAPI Integration** - Type-safe API calls using OpenAPI specifications
+- **gRPC Services** - Invoking gRPC methods
+- **AsyncAPI** - Publishing and subscribing to message brokers
+- **Authentication** - OAuth2, OIDC, Bearer token, and other auth methods
+
+[View Service Orchestration Examples →](/examples/service-orchestration)
+
+### Error Handling
+
+Implement robust error handling and recovery strategies:
+
+- **Try-Catch Blocks** - Catching and handling errors gracefully
+- **Retry Logic** - Automatic retry with backoff strategies
+- **Error Raising** - Explicitly raising errors with context
+- **Conditional Error Handling** - Different recovery paths based on error types
+
+[View Error Handling Examples →](/examples/error-handling)
+
+## Quick Reference
+
+### Common Task Types
+
+| Task Type | Purpose | Example File |
+|-----------|---------|-------------|
+| `call: http` | Make HTTP requests | `do-single.yaml` |
+| `call: openapi` | Invoke OpenAPI operations | `call-openapi.yaml` |
+| `call: grpc` | Call gRPC methods | `call-grpc.yaml` |
+| `call: asyncapi` | Publish/subscribe messages | `call-asyncapi-publish.yaml` |
+| `listen` | Wait for events | `listen-to-one.yaml` |
+| `emit` | Publish events | `emit.yaml` |
+| `set` | Set workflow data | `set.yaml` |
+| `for` | Iterate over collections | `for.yaml` |
+| `fork` | Execute tasks in parallel | `fork.yaml` |
+| `switch` | Conditional branching | `switch-then-string.yaml` |
+| `try/catch` | Error handling | `try-catch.yaml` |
+| `run: container` | Execute containers | `run-container.yaml` |
+| `run: workflow` | Call subworkflows | `run-subflow.yaml` |
+| `wait` | Delay execution | `wait-duration-iso8601.yaml` |
+
+### Workflow Scheduling
+
+| Schedule Type | Description | Example |
+|--------------|-------------|----------|
+| `cron` | Time-based scheduling | `schedule-cron.yaml` |
+| `on: one` | Triggered by single event | `schedule-event-driven.yaml` |
+| `on: all` | Triggered when all events received | `listen-to-all.yaml` |
+
+## Example Structure
+
+All examples follow the Serverless Workflow DSL 1.0.3 specification and include:
+
+```yaml
+document:
+  dsl: '1.0.3'          # DSL version
+  namespace: examples    # Workflow namespace
+  name: workflow-name    # Unique workflow name
+  version: '0.1.0'      # Workflow version
+
+# Optional: Define input schema
+input:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        # ... schema definition
+
+# Optional: Schedule configuration
+schedule:
+  cron: '0 0 * * *'     # or event-based trigger
+
+# Main workflow logic
+do:
+  - taskName:
+      # Task definition
+
+# Optional: Timeout configuration
+timeout:
+  after:
+    seconds: 30
+```
+
+## Using These Examples
+
+### Running Examples
+
+To run any example workflow:
+
+1. Ensure you have a Serverless Workflow runtime installed
+2. Copy the example YAML file
+3. Modify any placeholders (URLs, credentials, etc.)
+4. Execute using your runtime's CLI or API
+
+### Adapting Examples
+
+Each example is designed to be:
+
+- **Self-contained** - Complete, runnable workflow definitions
+- **Documented** - Clear explanations of what each part does
+- **Adaptable** - Easy to modify for your specific use case
+- **Best-practice** - Following recommended patterns and conventions
+
+## Additional Resources
+
+- [Serverless Workflow Specification](https://serverlessworkflow.io)
+- [DSL Reference](/reference/dsl)
+- [Runtime Implementations](/implementations)
+- [Community Examples](https://github.com/serverlessworkflow/specification/tree/main/examples)
+
+## Contributing Examples
+
+Have a useful workflow pattern to share? Contributions are welcome!
+
+- Submit examples via pull request
+- Follow the existing example structure
+- Include clear documentation
+- Test examples before submitting

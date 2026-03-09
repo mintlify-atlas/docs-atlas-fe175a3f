@@ -1,0 +1,165 @@
+---
+title: Tooling
+description: Development tools and utilities for Serverless Workflows
+---
+
+In order to enhance developer experience with the Serverless Workflow DSL, the ecosystem provides various tools and utilities designed to streamline workflow development, debugging, and management.
+
+## Visual Studio Code Extension
+
+The official Serverless Workflow extension for Visual Studio Code provides comprehensive support for authoring and managing workflows.
+
+<Card 
+  title="Serverless Workflow VSCode Extension" 
+  icon="code" 
+  href="https://marketplace.visualstudio.com/items?itemName=serverlessworkflow.serverless-workflow-vscode-extension"
+>
+  Install from the Visual Studio Code Marketplace
+</Card>
+
+### Features
+
+The VS Code extension offers:
+
+#### Syntax Highlighting
+
+- Full syntax highlighting for workflow definitions
+- Support for both YAML and JSON formats
+- Color-coded task types and properties
+- Clear visual distinction of workflow structure
+
+#### IntelliSense
+
+- Auto-completion for workflow properties
+- Contextual suggestions based on DSL schema
+- Parameter hints for task definitions
+- Documentation on hover
+
+#### Validation
+
+- Real-time schema validation
+- Error and warning indicators
+- Quick fixes for common issues
+- Detailed error messages and suggestions
+
+#### Snippets
+
+- Pre-built templates for common workflow patterns
+- Task type snippets for quick insertion
+- Boilerplate generation for new workflows
+- Customizable snippet library
+
+#### Navigation
+
+- Go to definition for workflow references
+- Find all references for tasks and functions
+- Outline view for workflow structure
+- Breadcrumb navigation
+
+### Installation
+
+#### From VS Code Marketplace
+
+1. Open Visual Studio Code
+2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "Serverless Workflow"
+4. Click "Install"
+
+#### From Command Line
+
+```bash
+code --install-extension serverlessworkflow.serverless-workflow-vscode-extension
+```
+
+### Getting Started
+
+1. **Create a new workflow file** with `.sw.yaml` or `.sw.json` extension
+2. **Start typing** and use IntelliSense suggestions (Ctrl+Space)
+3. **Use snippets** by typing `sw-` and selecting from the list
+4. **Validate** your workflow with real-time error checking
+
+### Example Workflow
+
+```yaml
+document:
+  dsl: 1.0.0
+  namespace: examples
+  name: hello-world
+  version: 1.0.0
+do:
+  - greet:
+      call: http
+      with:
+        method: post
+        uri: https://api.example.com/greet
+        body:
+          name: ${ .user.name }
+```
+
+The extension will:
+- Highlight syntax elements
+- Validate the structure
+- Provide auto-completion
+- Show inline documentation
+
+## Source Code
+
+The extension is open source and available on GitHub:
+
+<Card 
+  title="VSCode Extension Repository" 
+  icon="github" 
+  href="https://github.com/serverlessworkflow/vscode-extension"
+>
+  View source, report issues, and contribute
+</Card>
+
+## Additional Tools
+
+The Serverless Workflow ecosystem continues to grow. Additional tooling being developed includes:
+
+### Command-Line Tools
+
+- Workflow validation utilities
+- DSL conversion tools
+- Testing and debugging CLIs
+
+### Web-Based Tools
+
+- Online workflow editors
+- Visualization tools
+- Documentation generators
+
+### Integration Tools
+
+- CI/CD pipeline integrations
+- Deployment automation
+- Monitoring and observability tools
+
+## Contributing Tools
+
+Want to contribute a tool to the ecosystem?
+
+1. **Identify a Need**: Find a gap in the current tooling landscape
+2. **Build Your Tool**: Develop a tool that addresses that need
+3. **Test Thoroughly**: Ensure your tool works with various workflow definitions
+4. **Document**: Provide clear documentation and examples
+5. **Share**: Submit a PR to add your tool to this page
+
+### Resources
+
+- [Community Slack](https://slack.cncf.io/) - #serverless-workflow
+- [GitHub Organization](https://github.com/serverlessworkflow)
+- [Contributing Guide](https://github.com/serverlessworkflow/specification/blob/master/contributing.md)
+
+## Future Tooling
+
+The community is actively working on:
+
+- Enhanced debugging tools
+- Performance profiling utilities
+- Workflow testing frameworks
+- Visual workflow designers
+- IDE integrations for other editors
+
+Join the community to help shape the future of Serverless Workflow tooling!

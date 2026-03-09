@@ -1,0 +1,769 @@
+---
+title: Scheduling
+description: CRON-based and event-driven workflow scheduling in Serverless Workflow
+---
+
+## Overview
+
+Workflow scheduling in Serverless Workflow allows developers to specify when and how their workflows should be executed, ensuring timely response to events and efficient resource utilization. The DSL offers multiple scheduling mechanisms to accommodate different execution patterns.
+
+<Info>
+  Scheduling determines when new workflow instances are created, not what happens within an already running instance.
+</Info>
+
+## Scheduling Properties
+
+The workflow scheduling configuration offers four key properties:
+
+| Property | Description |
+|:---------|:------------|
+| `every` | Defines the interval for periodic workflow execution |
+| `cron` | Uses CRON expressions to schedule execution at specific times |
+| `after` | Specifies a delay duration before restarting the workflow after completion |
+| `on` | Enables event-driven scheduling based on specified events |
+
+## CRON-Based Scheduling
+
+CRON expressions allow you to schedule workflow execution at specific times or intervals using the familiar CRON syntax.
+
+### Basic CRON Scheduling
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: scheduled
+  name: daily-report
+  version: '1.0.0'
+
+schedule:
+  cron: "0 0 * * *"  # Every day at midnight
+
+do:
+  - generateReport:
+      call: reportGenerator
+  - sendReport:
+      call: emailService
+      with:
+        report: ${ .generateReport.output }
+```
+
+<ParamField path="schedule.cron" type="string">
+  CRON expression defining when the workflow should execute
+</ParamField>
+
+### CRON Expression Format
+
+CRON expressions use five or six fields:
+
+```
+┌───────────── minute (0 - 59)
+│ ┌───────────── hour (0 - 23)
+│ │ ┌───────────── day of month (1 - 31)
+│ │ │ ┌───────────── month (1 - 12)
+│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+│ │ │ │ │
+│ │ │ │ │
+* * * * *
+```
+
+### CRON Examples
+
+#### Every Minute
+
+```yaml
+schedule:
+  cron: "* * * * *"
+```
+
+#### Every Hour
+
+```yaml
+schedule:
+  cron: "0 * * * *"
+```
+
+#### Every Day at Noon
+
+```yaml
+schedule:
+  cron: "0 12 * * *"
+```
+
+#### Every Monday at 9 AM
+
+```yaml
+schedule:
+  cron: "0 9 * * 1"
+```
+
+#### Every Weekday at 6 PM
+
+```yaml
+schedule:
+  cron: "0 18 * * 1-5"
+```
+
+#### First Day of Every Month at Midnight
+
+```yaml
+schedule:
+  cron: "0 0 1 * *"
+```
+
+#### Every 15 Minutes
+
+```yaml
+schedule:
+  cron: "*/15 * * * *"
+```
+
+#### Twice Daily (8 AM and 8 PM)
+
+```yaml
+schedule:
+  cron: "0 8,20 * * *"
+```
+
+### CRON Scheduling Use Cases
+
+#### Daily Backup
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: maintenance
+  name: daily-backup
+  version: '1.0.0'
+
+schedule:
+  cron: "0 2 * * *"  # Every day at 2 AM
+
+do:
+  - backupDatabase:
+      call: backupService
+      with:
+        target: production-db
+  
+  - uploadToStorage:
+      call: storageService
+      with:
+        backup: ${ .backupDatabase.output }
+        location: s3://backups/
+```
+
+#### Weekly Report
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: reports
+  name: weekly-sales-report
+  version: '1.0.0'
+
+schedule:
+  cron: "0 9 * * 1"  # Every Monday at 9 AM
+
+do:
+  - gatherSalesData:
+      call: analyticsService
+      with:
+        period: last-week
+  
+  - generateReport:
+      call: reportGenerator
+      with:
+        data: ${ .gatherSalesData.output }
+  
+  - distributeReport:
+      call: emailService
+      with:
+        recipients: ["sales@example.com", "management@example.com"]
+        report: ${ .generateReport.output }
+```
+
+#### Hourly Data Sync
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: integration
+  name: hourly-sync
+  version: '1.0.0'
+
+schedule:
+  cron: "0 * * * *"  # Every hour on the hour
+
+do:
+  - fetchUpdates:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/updates
+  
+  - syncToDatabase:
+      call: databaseService
+      with:
+        updates: ${ .fetchUpdates.output }
+```
+
+## Interval-Based Scheduling
+
+The `every` property defines periodic execution intervals:
+
+### Basic Interval
+
+```yaml
+schedule:
+  every:
+    hours: 2
+    minutes: 30
+```
+
+<ParamField path="schedule.every" type="object">
+  Duration object defining the interval between workflow executions
+</ParamField>
+
+<Note>
+  The `every` property ensures periodic runs regardless of the previous run's status. A new instance starts at each interval, even if previous instances are still running.
+</Note>
+
+### Interval Examples
+
+#### Every 5 Minutes
+
+```yaml
+schedule:
+  every:
+    minutes: 5
+```
+
+#### Every 30 Seconds
+
+```yaml
+schedule:
+  every:
+    seconds: 30
+```
+
+#### Every 6 Hours
+
+```yaml
+schedule:
+  every:
+    hours: 6
+```
+
+#### Every 2 Days
+
+```yaml
+schedule:
+  every:
+    days: 2
+```
+
+#### Complex Interval
+
+```yaml
+schedule:
+  every:
+    hours: 1
+    minutes: 30
+    seconds: 45
+```
+
+### Interval Scheduling Use Cases
+
+#### Health Check Monitor
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: monitoring
+  name: health-check
+  version: '1.0.0'
+
+schedule:
+  every:
+    minutes: 5
+
+do:
+  - checkServices:
+      fork:
+        branches:
+          - checkAPI:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://api.example.com/health
+          
+          - checkDatabase:
+              call: databaseService
+              with:
+                action: ping
+          
+          - checkCache:
+              call: cacheService
+              with:
+                action: ping
+  
+  - reportStatus:
+      call: monitoringService
+      with:
+        results: ${ .checkServices.output }
+```
+
+#### Frequent Data Polling
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: polling
+  name: status-poller
+  version: '1.0.0'
+
+schedule:
+  every:
+    seconds: 30
+
+do:
+  - pollStatus:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/status
+  
+  - processChanges:
+      if: ${ .pollStatus.output.hasChanges }
+      call: changeProcessor
+      with:
+        changes: ${ .pollStatus.output.changes }
+```
+
+## Delayed Restart Scheduling
+
+The `after` property specifies a delay before restarting the workflow after completion:
+
+### Basic Delayed Restart
+
+```yaml
+schedule:
+  after:
+    minutes: 5
+```
+
+<ParamField path="schedule.after" type="object">
+  Duration to wait after workflow completion before starting a new instance
+</ParamField>
+
+<Info>
+  Unlike `every`, the `after` property waits for the workflow to complete before starting the delay timer. This prevents overlap and ensures sequential execution.
+</Info>
+
+### Delayed Restart Examples
+
+```yaml
+# Wait 10 minutes after completion
+schedule:
+  after:
+    minutes: 10
+
+# Wait 1 hour after completion
+schedule:
+  after:
+    hours: 1
+
+# Wait 30 seconds after completion
+schedule:
+  after:
+    seconds: 30
+```
+
+### Delayed Restart Use Case
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: processing
+  name: batch-processor
+  version: '1.0.0'
+
+schedule:
+  after:
+    minutes: 5
+
+do:
+  - fetchBatch:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/batch/next
+  
+  - processBatch:
+      if: ${ .fetchBatch.output.items | length > 0 }
+      for:
+        each: item
+        in: ${ .fetchBatch.output.items }
+      do:
+        - processItem:
+            call: processor
+            with:
+              item: ${ .item }
+```
+
+## Event-Driven Scheduling
+
+The `on` property enables event-driven scheduling, triggering workflow execution based on specified events:
+
+### Basic Event-Driven Scheduling
+
+```yaml
+schedule:
+  on:
+    events:
+      - with:
+          type: order.created
+          source: https://api.example.com/orders
+```
+
+<ParamField path="schedule.on" type="object">
+  Event-driven scheduling configuration
+</ParamField>
+
+<ParamField path="schedule.on.events" type="array">
+  Array of CloudEvents filters that trigger workflow execution
+</ParamField>
+
+### Event Correlation
+
+You can specify multiple events that must be received:
+
+```yaml
+schedule:
+  on:
+    events:
+      all:
+        - with:
+            type: payment.received
+            source: https://payments.example.com
+        - with:
+            type: inventory.reserved
+            source: https://inventory.example.com
+```
+
+<ParamField path="schedule.on.events.all" type="array">
+  All specified events must be received to trigger the workflow
+</ParamField>
+
+<ParamField path="schedule.on.events.any" type="array">
+  Any one of the specified events will trigger the workflow
+</ParamField>
+
+### Event-Driven Examples
+
+#### Single Event Trigger
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: ecommerce
+  name: order-processor
+  version: '1.0.0'
+
+schedule:
+  on:
+    events:
+      - with:
+          type: order.placed
+          source: https://api.example.com/orders
+
+do:
+  - validateOrder:
+      call: validator
+      with:
+        order: ${ $workflow.input[0].data }
+  
+  - processPayment:
+      call: paymentService
+      with:
+        orderId: ${ $workflow.input[0].data.orderId }
+```
+
+#### Multiple Event Correlation (ALL)
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: fulfillment
+  name: order-fulfillment
+  version: '1.0.0'
+
+schedule:
+  on:
+    events:
+      all:
+        - with:
+            type: payment.confirmed
+            source: https://payments.example.com
+        - with:
+            type: inventory.allocated
+            source: https://inventory.example.com
+        - with:
+            type: shipping.ready
+            source: https://shipping.example.com
+
+do:
+  - fulfillOrder:
+      call: fulfillmentService
+      with:
+        paymentEvent: ${ $workflow.input[0] }
+        inventoryEvent: ${ $workflow.input[1] }
+        shippingEvent: ${ $workflow.input[2] }
+```
+
+#### Multiple Event Options (ANY)
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: notifications
+  name: alert-handler
+  version: '1.0.0'
+
+schedule:
+  on:
+    events:
+      any:
+        - with:
+            type: system.error
+            source: https://api.example.com
+        - with:
+            type: system.warning
+            source: https://api.example.com
+        - with:
+            type: system.critical
+            source: https://api.example.com
+
+do:
+  - determineseverity:
+      call: severityAnalyzer
+      with:
+        event: ${ $workflow.input[0] }
+  
+  - sendAlert:
+      call: alertingService
+      with:
+        severity: ${ .determineS severity.output }
+        message: ${ $workflow.input[0].data.message }
+```
+
+### Event-Driven Workflow Input
+
+In event-driven scheduled workflows, the input is structured as an array containing the events that trigger the execution:
+
+```yaml
+do:
+  - processFirstEvent:
+      call: processor
+      with:
+        event: ${ $workflow.input[0] }  # First event
+  
+  - processAllEvents:
+      for:
+        each: event
+        in: ${ $workflow.input }
+      do:
+        - handleEvent:
+            call: eventHandler
+            with:
+              event: ${ .event }
+```
+
+<Note>
+  Authors can reference individual events using `$workflow.input[index]`, where index indicates the event's position starting from 0.
+</Note>
+
+## Event-Driven vs Start Listen Task
+
+While both `schedule.on` and a start listener task enable event-driven execution, they serve distinct purposes:
+
+### schedule.on
+
+Defines **when** a new workflow instance should be created based on external events:
+
+```yaml
+schedule:
+  on:
+    events:
+      - with:
+          type: user.registered
+          source: https://api.example.com
+
+do:
+  - welcomeUser:
+      call: welcomeService
+```
+
+<Info>
+  `schedule.on` manages the creation of new workflow instances. Faults or timeouts in the scheduling process are typically invisible to the workflow instance.
+</Info>
+
+### Start Listen Task
+
+Defines **what** should happen after a workflow instance is created:
+
+```yaml
+do:
+  - waitForActivation:
+      listen:
+        to:
+          any:
+            - with:
+                type: account.activated
+                source: https://api.example.com
+  
+  - processActivation:
+      call: activationProcessor
+```
+
+<Warning>
+  A start listener task operates within an already instantiated workflow. If it experiences a timeout or fault, it can cause the entire workflow instance to fail.
+</Warning>
+
+### Key Differences
+
+| Aspect | `schedule.on` | Start `listen` Task |
+|:-------|:--------------|:--------------------|
+| Purpose | Creates new instance | Waits within instance |
+| Scope | External to instance | Internal to instance |
+| Failure Impact | Does not affect instance | Can fault the instance |
+| Input | Events in `$workflow.input` | Events accessible in task |
+| Use Case | Triggering workflows | Waiting for events mid-workflow |
+
+## Combined Scheduling Strategies
+
+You can combine different scheduling approaches, though typically only one is used:
+
+### CRON with Event Fallback
+
+```yaml
+# This workflow runs on schedule OR can be triggered by events
+schedule:
+  cron: "0 */6 * * *"  # Every 6 hours
+  on:
+    events:
+      - with:
+          type: data.urgentUpdate
+          source: https://api.example.com
+```
+
+<Note>
+  When combining scheduling methods, the workflow instance is created whenever any scheduling condition is met.
+</Note>
+
+## Scheduling Best Practices
+
+<Steps>
+  <Step title="Choose the right scheduling type">
+    Use CRON for time-based schedules, `every` for regular intervals, `after` for sequential processing, and `on` for event-driven execution.
+  </Step>
+  
+  <Step title="Consider timezone implications">
+    Be aware that CRON expressions typically use UTC. Document the timezone for clarity.
+  </Step>
+  
+  <Step title="Avoid overlapping executions">
+    Use `after` instead of `every` when you need to ensure previous workflow instances complete before starting new ones.
+  </Step>
+  
+  <Step title="Set workflow timeouts">
+    Always configure timeouts for scheduled workflows to prevent runaway executions.
+  </Step>
+  
+  <Step title="Handle missing events">
+    For event-driven workflows, implement logic to handle cases where expected events don't arrive.
+  </Step>
+  
+  <Step title="Monitor scheduled workflows">
+    Implement logging and monitoring to track scheduled executions and identify failures.
+  </Step>
+</Steps>
+
+## Common Patterns
+
+### Pattern: Scheduled with Manual Override
+
+```yaml
+schedule:
+  cron: "0 2 * * *"  # Automatic: Daily at 2 AM
+  on:
+    events:
+      - with:
+          type: manual.trigger
+          source: https://admin.example.com
+
+do:
+  - checkTriggerSource:
+      set:
+        isManual: ${ $workflow.input | length > 0 }
+  
+  - performOperation:
+      call: operationService
+      with:
+        priority: ${ if .isManual then "high" else "normal" end }
+```
+
+### Pattern: Rate-Limited Event Processing
+
+```yaml
+schedule:
+  every:
+    minutes: 5
+
+do:
+  - fetchPendingEvents:
+      call: eventStore
+      with:
+        limit: 100
+  
+  - processEvents:
+      for:
+        each: event
+        in: ${ .fetchPendingEvents.output }
+      do:
+        - handleEvent:
+            call: eventProcessor
+            with:
+              event: ${ .event }
+```
+
+### Pattern: Conditional Scheduling
+
+```yaml
+schedule:
+  cron: "0 * * * *"  # Every hour
+
+do:
+  - checkBusinessHours:
+      call: timeService
+  
+  - processIfBusinessHours:
+      if: ${ .checkBusinessHours.output.isBusinessHours }
+      call: businessProcessor
+  
+  - skipIfAfterHours:
+      if: ${ .checkBusinessHours.output.isBusinessHours == false }
+      call: logger
+      with:
+        message: Skipping execution - outside business hours
+```
+
+## Related Topics
+
+- [Workflows](/core/workflows) - Learn about workflow structure and lifecycle
+- [Events](/core/events) - Understand event-driven architecture
+- [Timeouts](/core/timeouts) - Configure timeouts for scheduled workflows
+- [Task Flow](/core/task-flow) - Control execution within scheduled workflows

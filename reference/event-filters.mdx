@@ -1,0 +1,319 @@
+---
+title: Event Filters
+description: Filter and consume events in Serverless Workflow
+---
+
+## Overview
+
+An event filter is a mechanism used to selectively process or handle events based on predefined criteria, such as event type, source, or specific attributes. Event filters enable workflows to wait for and react to specific events, supporting event-driven architectures.
+
+## Event Filter Object
+
+<ParamField path="with" type="object" required>
+  A name/value mapping of the attributes filtered events must define. Supports both regular expressions and runtime expressions.
+</ParamField>
+
+<ParamField path="correlate" type="object">
+  A name/definition mapping of the correlations to attempt when filtering events.
+</ParamField>
+
+## Event Properties
+
+An event object typically includes details such as the event type, source, timestamp, and unique identifier along with any relevant data payload. The [Cloud Events specification](https://cloudevents.io/), favored by Serverless Workflow, standardizes this structure to ensure interoperability across different systems and services.
+
+<ParamField path="id" type="string">
+  Identifies the event. `source` + `id` is unique for each distinct event.
+  
+  Required when emitting an event using `emit.event.with`.
+</ParamField>
+
+<ParamField path="source" type="string">
+  An URI formatted string, or runtime expression, that identifies the context in which an event happened. `source` + `id` is unique for each distinct event.
+  
+  Required when emitting an event using `emit.event.with`.
+</ParamField>
+
+<ParamField path="type" type="string">
+  Describes the type of event related to the originating occurrence.
+  
+  Required when emitting an event using `emit.event.with`.
+</ParamField>
+
+<ParamField path="time" type="string">
+  A string, or runtime expression, representing the timestamp of when the occurrence happened.
+</ParamField>
+
+<ParamField path="subject" type="string">
+  Describes the subject of the event in the context of the event producer.
+</ParamField>
+
+<ParamField path="datacontenttype" type="string">
+  Content type of `data` value. If omitted, it implies the `data` is a JSON value conforming to the "application/json" media type.
+</ParamField>
+
+<ParamField path="dataschema" type="string">
+  An URI formatted string, or runtime expression, that identifies the schema that `data` adheres to.
+</ParamField>
+
+<ParamField path="data" type="any">
+  The event payload.
+</ParamField>
+
+<Note>
+  Additional properties can be supplied, see the Cloud Events specification [documentation](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#extension-context-attributes) for more info.
+  
+  When used in an event filter, at least one property must be supplied.
+</Note>
+
+## Event Consumption Strategy
+
+Represents the configuration of an event consumption strategy.
+
+<ParamField path="all" type="array">
+  Configures the workflow to wait for all defined events before resuming execution.
+  
+  Required if `any` and `one` have not been set.
+</ParamField>
+
+<ParamField path="any" type="array">
+  Configures the workflow to wait for any of the defined events before resuming execution.
+  
+  Required if `all` and `one` have not been set.
+  
+  If empty, listens to all incoming events.
+</ParamField>
+
+<ParamField path="one" type="object">
+  Configures the workflow to wait for the defined event before resuming execution.
+  
+  Required if `all` and `any` have not been set.
+</ParamField>
+
+<ParamField path="until" type="string | object">
+  Configures the runtime expression condition or the events that must be consumed to stop listening.
+  
+  Only applies if `any` has been set, otherwise ignored.
+  
+  If not present, once any event is received, it proceeds to the next task.
+</ParamField>
+
+## Correlation
+
+A correlation is a link between events and data, established by mapping event attributes to specific data attributes, allowing for coordinated processing or handling based on event characteristics.
+
+<ParamField path="from" type="string" required>
+  A runtime expression used to extract the correlation value from the filtered event.
+</ParamField>
+
+<ParamField path="expect" type="string">
+  A constant or a runtime expression, if any, used to determine whether or not the extracted correlation value matches expectations.
+  
+  If not set, the first extracted value will be used as the correlation's expectation.
+</ParamField>
+
+## Examples
+
+### Listen for a Single Event
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: listen-example
+  version: '0.1.0'
+do:
+  - waitForOrder:
+      listen:
+        to:
+          one:
+            with:
+              type: com.fake-store.order.placed.v1
+              source: https://fake-store.com
+```
+
+### Listen for Any of Multiple Events
+
+```yaml
+do:
+  - callDoctor:
+      listen:
+        to:
+          any:
+          - with:
+              type: com.fake-hospital.vitals.measurements.temperature
+              data: ${ .temperature > 38 }
+          - with:
+              type: com.fake-hospital.vitals.measurements.bpm
+              data: ${ .bpm < 60 or .bpm > 100 }
+```
+
+### Listen for All Events
+
+```yaml
+do:
+  - processOrder:
+      listen:
+        to:
+          all:
+          - with:
+              type: com.fake-store.payment.processed.v1
+          - with:
+              type: com.fake-store.inventory.reserved.v1
+          - with:
+              type: com.fake-store.shipping.scheduled.v1
+```
+
+### Event Filtering with Data Conditions
+
+```yaml
+do:
+  - monitorTemperature:
+      listen:
+        to:
+          one:
+            with:
+              type: com.iot.sensor.temperature
+              source: https://sensors.example.com
+              data: ${ .value > 30 and .unit == "celsius" }
+```
+
+### Event Correlation
+
+```yaml
+do:
+  - correlateOrders:
+      listen:
+        to:
+          one:
+            with:
+              type: com.fake-store.order.status.updated.v1
+            correlate:
+              orderId:
+                from: .data.orderId
+                expect: ${ .input.orderId }
+```
+
+### Listen Until Condition
+
+```yaml
+do:
+  - collectMessages:
+      listen:
+        to:
+          any:
+          - with:
+              type: com.chat.message.received.v1
+          until: ${ ($context.messages | length) >= 10 }
+```
+
+### Listen with For Each Processing
+
+```yaml
+do:
+  - processEvents:
+      listen:
+        to:
+          any:
+          - with:
+              type: com.example.event.v1
+          until: ${ ($context.events | length) >= 5 }
+        foreach:
+          item: event
+          at: index
+          do:
+            - logEvent:
+                call: http
+                with:
+                  method: post
+                  endpoint: https://logging.example.com/log
+                  body:
+                    event: ${ $event }
+                    index: ${ $index }
+```
+
+### Read Event Envelope
+
+```yaml
+do:
+  - readFullEvent:
+      listen:
+        to:
+          one:
+            with:
+              type: com.example.event.v1
+        read: envelope
+```
+
+The `read` property specifies how events are read during the listen operation:
+- `data`: Reads the event's data (default)
+- `envelope`: Reads the event's envelope, including its context attributes
+- `raw`: Reads the event's raw data
+
+## Emitting Events
+
+You can emit events using the `emit` task:
+
+```yaml
+do:
+  - emitEvent:
+      emit:
+        event:
+          with:
+            source: https://petstore.com
+            type: com.petstore.order.placed.v1
+            data:
+              client:
+                firstName: Cruella
+                lastName: de Vil
+              items:
+                - breed: dalmatian
+                  quantity: 101
+```
+
+### Emit with Dynamic Properties
+
+```yaml
+do:
+  - emitOrderEvent:
+      emit:
+        event:
+          with:
+            source: https://fake-store.com
+            type: com.fake-store.order.placed.v1
+            id: ${ .order.id }
+            time: ${ now }
+            subject: ${ "order/" + .order.id }
+            data: ${ .order }
+```
+
+## Event Consumption in Workflows
+
+<Note>
+  A `listen` task produces a sequentially ordered array of all the events it has consumed, and potentially transformed using `foreach.output.as`.
+</Note>
+
+<Warning>
+  Events consumed by an `until` clause should not be included in the task's output. These events are used solely to determine when the until condition has been met, and they do not contribute to the result or data produced by the task itself.
+</Warning>
+
+## Schedule-Based Event Consumption
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: scheduled-event-example
+  version: '0.1.0'
+schedule:
+  on:
+    one:
+      with:
+        type: com.example.scheduled.task.v1
+do:
+  - processScheduledEvent:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/process
+        body: ${ . }
+```

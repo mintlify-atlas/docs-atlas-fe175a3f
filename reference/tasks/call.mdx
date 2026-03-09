@@ -1,0 +1,421 @@
+---
+title: Call Task
+description: Execute functions and call external services
+---
+
+Enables the execution of a specified function within a workflow, allowing seamless integration with custom business logic or external services.
+
+## Properties
+
+<ParamField path="call" type="string" required>
+  The name of the function to call.
+</ParamField>
+
+<ParamField path="with" type="map">
+  A name/value mapping of the parameters to call the function with.
+</ParamField>
+
+## Built-in Functions
+
+Serverless Workflow defines several default functions that **MUST** be supported by all implementations and runtimes:
+
+- [AsyncAPI](#asyncapi-call) - Interact with AsyncAPI-described services
+- [gRPC](#grpc-call) - Communicate via gRPC protocol
+- [HTTP](#http-call) - Make HTTP requests
+- [OpenAPI](#openapi-call) - Call OpenAPI-described operations
+- [A2A](#a2a-call) - Interact with AI agents
+- [MCP](#mcp-call) - Interact with Model Context Protocol servers
+
+## AsyncAPI Call
+
+The AsyncAPI Call enables workflows to interact with external services described by AsyncAPI.
+
+### Properties
+
+<ParamField path="document" type="externalResource" required>
+  The AsyncAPI document that defines the operation to call.
+</ParamField>
+
+<ParamField path="channel" type="string" required>
+  The name of the channel on which to perform the operation. Used only in case the referenced document uses AsyncAPI v2.6.0.
+</ParamField>
+
+<ParamField path="operation" type="string" required>
+  A reference to the AsyncAPI operation to call. Used only in case the referenced document uses AsyncAPI v3.0.0.
+</ParamField>
+
+<ParamField path="server" type="asyncApiServer">
+  An object used to configure the server to call the specified AsyncAPI operation on. If not set, defaults to the first server matching the operation's channel.
+</ParamField>
+
+<ParamField path="protocol" type="string">
+  The protocol to use to select the target server. Ignored if `server` has been set.
+  
+  Supported values: `amqp`, `amqp1`, `anypointmq`, `googlepubsub`, `http`, `ibmmq`, `jms`, `kafka`, `mercure`, `mqtt`, `mqtt5`, `nats`, `pulsar`, `redis`, `sns`, `solace`, `sqs`, `stomp`, `ws`
+</ParamField>
+
+<ParamField path="message" type="asyncApiMessage">
+  An object used to configure the message to publish using the target operation. Required if `subscription` has not been set.
+</ParamField>
+
+<ParamField path="subscription" type="asyncApiSubscription">
+  An object used to configure the subscription to messages consumed using the target operation. Required if `message` has not been set.
+</ParamField>
+
+<ParamField path="authentication" type="string | authentication">
+  The authentication policy, or the name of the authentication policy, to use when calling the AsyncAPI operation.
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: asyncapi-example
+  version: '0.1.0'
+do:
+  - publishGreetings:
+      call: asyncapi
+      with:
+        document:
+          endpoint: https://fake.com/docs/asyncapi.json
+        operation: greet
+        server:
+          name: greetingsServer
+          variables:
+            environment: dev
+        message:
+          payload:
+            greetings: Hello, World!
+          headers:
+            foo: bar
+            bar: baz
+  - subscribeToChatInbox:
+      call: asyncapi
+      with:
+        document:
+          endpoint: https://fake.com/docs/asyncapi.json
+        operation: chat-inbox
+        protocol: http
+        subscription:
+          filter: ${ . == $workflow.input.chat.roomId }
+          consume:
+            amount: 5
+            for:
+              seconds: 10
+```
+
+## gRPC Call
+
+The gRPC Call enables communication with external systems via the gRPC protocol.
+
+### Properties
+
+<ParamField path="proto" type="externalResource" required>
+  The proto resource that describes the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.name" type="string" required>
+  The name of the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.host" type="string" required>
+  The hostname of the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.port" type="integer">
+  The port number of the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.authentication" type="authentication">
+  The authentication policy to use when calling the gRPC service.
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  The name of the gRPC service method to call.
+</ParamField>
+
+<ParamField path="arguments" type="map">
+  A name/value mapping of the method call's arguments, if any.
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: grpc-example
+  version: '0.1.0'
+do:
+  - greet:
+      call: grpc
+      with:
+        proto:
+          endpoint: file://app/greet.proto
+        service:
+          name: GreeterApi.Greeter
+          host: localhost
+          port: 5011
+        method: SayHello
+        arguments:
+          name: ${ .user.preferredDisplayName }
+```
+
+## HTTP Call
+
+The HTTP Call enables workflows to interact with external services over HTTP.
+
+### Properties
+
+<ParamField path="method" type="string" required>
+  The HTTP request method.
+</ParamField>
+
+<ParamField path="endpoint" type="string | endpoint" required>
+  An URI or an object that describes the HTTP endpoint to call.
+</ParamField>
+
+<ParamField path="headers" type="map">
+  A name/value mapping of the HTTP headers to use, if any.
+</ParamField>
+
+<ParamField path="body" type="any">
+  The HTTP request body, if any.
+</ParamField>
+
+<ParamField path="query" type="map[string, any]">
+  A name/value mapping of the query parameters to use, if any.
+</ParamField>
+
+<ParamField path="output" type="string" default="content">
+  The HTTP call's output format.
+  
+  Supported values:
+  - `raw` - Outputs the base-64 encoded HTTP response content, if any
+  - `content` - Outputs the content of HTTP response, possibly deserialized
+  - `response` - Outputs the HTTP response
+</ParamField>
+
+<ParamField path="redirect" type="boolean" default={false}>
+  Specifies whether redirection status codes (300-399) should be treated as errors.
+  
+  - If `false`, runtimes must raise an error for response status codes outside the 200-299 range
+  - If `true`, runtimes must raise an error for status codes outside the 200-399 range
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: http-example
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+```
+
+## OpenAPI Call
+
+The OpenAPI Call enables workflows to interact with external services described by OpenAPI.
+
+### Properties
+
+<ParamField path="document" type="externalResource" required>
+  The OpenAPI document that defines the operation to call.
+</ParamField>
+
+<ParamField path="operationId" type="string" required>
+  The id of the OpenAPI operation to call.
+</ParamField>
+
+<ParamField path="parameters" type="map">
+  A name/value mapping of the parameters, if any, of the OpenAPI operation to call.
+</ParamField>
+
+<ParamField path="authentication" type="authentication">
+  The authentication policy to use when calling the OpenAPI operation.
+</ParamField>
+
+<ParamField path="output" type="string" default="content">
+  The OpenAPI call's output format.
+  
+  Supported values:
+  - `raw` - Outputs the base-64 encoded HTTP response content, if any
+  - `content` - Outputs the content of HTTP response, possibly deserialized
+  - `response` - Outputs the HTTP response
+</ParamField>
+
+<ParamField path="redirect" type="boolean" default={false}>
+  Specifies whether redirection status codes (300-399) should be treated as errors.
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: openapi-example
+  version: '0.1.0'
+do:
+  - findPet:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findPetsByStatus
+        parameters:
+          status: available
+```
+
+## A2A Call
+
+The A2A Call enables workflows to interact with AI agents described by A2A.
+
+### Properties
+
+<ParamField path="method" type="string" required>
+  The A2A JSON-RPC method to send.
+  
+  Supported values: `message/send`, `message/stream`, `tasks/get`, `tasks/list`, `tasks/cancel`, `tasks/resubscribe`, `tasks/pushNotificationConfig/set`, `tasks/pushNotificationConfig/get`, `tasks/pushNotificationConfig/list`, `tasks/pushNotificationConfig/delete`, `agent/getAuthenticatedExtendedCard`
+</ParamField>
+
+<ParamField path="agentCard" type="externalResource">
+  The AgentCard resource that describes the agent to call. Required if `server` has not been set.
+</ParamField>
+
+<ParamField path="server" type="string | endpoint">
+  An URI or an object that describes the A2A server to call. Required if `agentCard` has not been set.
+</ParamField>
+
+<ParamField path="parameters" type="map | string">
+  The parameters for the A2A RPC method. For `message/send` and `message/stream` methods, runtimes must default `message.messageId` to a uuid and `message.role` to `user`. Supports runtime expressions.
+</ParamField>
+
+<Note>
+The `security` and `securitySchemes` fields of the AgentCard contain authentication requirements and schemes for communicating with the agent.
+
+On success, the output is the JSON-RPC result. On failure, runtimes must raise an error with type `https://serverlessworkflow.io/spec/1.0.0/errors/runtime`.
+
+For `message/stream` and `tasks/resubscribe` methods, the output is a sequentially ordered array of all result objects.
+</Note>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: a2a-example
+  version: '0.1.0'
+do:
+  - GenerateReport:
+      call: a2a
+      with:
+        method: message/send
+        agentCard:
+          endpoint: https://example.com/.well-known/agent-card.json
+        parameters:
+          message:
+            parts:
+              - kind: text
+                text: Generate the Q1 sales report.
+```
+
+## MCP Call
+
+The MCP Call enables workflows to interact with Model Context Protocol (MCP) servers.
+
+### Properties
+
+<ParamField path="protocolVersion" type="string" default="2025-06-18" required>
+  The version of the MCP protocol to use.
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  The MCP method to call.
+  
+  Supported values:
+  - `tools/list` - Lists available tools
+  - `tools/call` - Calls a specific tool
+  - `prompts/list` - Lists available prompts
+  - `prompts/get` - Gets a specific prompt
+  - `resources/list` - Lists available resources
+  - `resources/read` - Reads a specific resource
+  - `resources/templates/list` - Lists available resource templates
+</ParamField>
+
+<ParamField path="parameters" type="map | string">
+  The MCP method parameters. Supports runtime expressions.
+</ParamField>
+
+<ParamField path="timeout" type="string | duration">
+  The duration after which the MCP call times out.
+</ParamField>
+
+<ParamField path="transport" type="transport" required>
+  The transport to use to perform the MCP call.
+</ParamField>
+
+<ParamField path="client" type="client">
+  Describes the client used to perform the MCP call.
+</ParamField>
+
+<Warning>
+Before making any MCP requests, runtimes **must** first send an `initialize` call to establish the connection. In most cases, client libraries handle this initialization automatically.
+</Warning>
+
+<Note>
+On success, the output of the call is the JSON-RPC result. On failure, runtimes must raise an error with type `https://serverlessworkflow.io/spec/1.0.0/errors/runtime`.
+</Note>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: mcp-example
+  version: '0.1.0'
+do:
+  - publishMessageToSlack:
+      call: mcp
+      with:
+        method: tools/call
+        parameters:
+          name: conversations_add_message
+          arguments:
+            channel_id: 'C1234567890'
+            thread_ts: '1623456789.123456'
+            payload: 'Hello, world! :wave:'
+            content_type: text/markdown
+        transport:
+          stdio:
+            command: npx
+            arguments: [ slack-mcp-server@latest, --transport, stdio ]
+            environment:
+              SLACK_MCP_XOXP_TOKEN: xoxp-xv6Cv3jKqNW8esm5YnsftKwIzoQHUzAP
+```
+
+## Simple Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: call-example
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+```

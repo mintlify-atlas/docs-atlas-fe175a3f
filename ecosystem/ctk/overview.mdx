@@ -1,0 +1,190 @@
+---
+title: Conformance Test Kit (CTK)
+description: Suite of automated tests for ensuring specification compliance
+---
+
+The Serverless Workflow Conformance Test Kit (CTK) is a suite of automated tests designed to ensure that implementations of the Serverless Workflow specification conform to the standard.
+
+The CTK is composed of multiple Gherkin features, each representing various aspects of the Serverless Workflow DSL.
+
+## What is Gherkin?
+
+Gherkin is a human-readable language used for writing structured tests, which can be understood by both non-technical stakeholders and automated test frameworks. It uses a **Given-When-Then** syntax to describe the preconditions, actions, and expected outcomes of a test scenario.
+
+### Example Scenario
+
+```gherkin
+Feature: HTTP Task Execution
+  As a workflow developer
+  I want to call HTTP endpoints
+  So that I can integrate with external services
+
+  Scenario: Simple GET request
+    Given a workflow with definition:
+    """
+    document:
+      dsl: 1.0.0
+      namespace: test
+      name: http-test
+      version: 1.0.0
+    do:
+      - fetchData:
+          call: http
+          with:
+            method: get
+            uri: https://api.example.com/data
+    """
+    When the workflow is executed
+    Then the workflow should complete
+```
+
+## Primary Uses
+
+The Serverless Workflow CTK serves two primary purposes:
+
+<CardGroup cols={2}>
+  <Card title="Conformance Testing" icon="check-circle" href="/ecosystem/ctk/conformance-testing">
+    Verify that implementations adhere to the Serverless Workflow specification
+  </Card>
+  
+  <Card title="Behavior-Driven Development" icon="code-branch" href="/ecosystem/ctk/bdd">
+    Facilitate collaborative development using Gherkin scenarios
+  </Card>
+</CardGroup>
+
+## Benefits
+
+### For Runtime Implementers
+
+- **Validation**: Ensure your runtime correctly implements the specification
+- **Regression Testing**: Catch breaking changes early in development
+- **Documentation**: Use test scenarios as implementation examples
+- **Confidence**: Demonstrate spec compliance to users
+
+### For SDK Developers
+
+- **Verification**: Validate workflow parsing and validation logic
+- **Compatibility**: Ensure workflows work across different runtimes
+- **Quality**: Maintain high standards for workflow definitions
+
+### For Workflow Authors
+
+- **Understanding**: Learn DSL features through concrete examples
+- **Validation**: Test workflow definitions against expected behavior
+- **Portability**: Ensure workflows work across compliant runtimes
+
+## Test Structure
+
+The CTK organizes tests using the **Arrange-Act-Assert** pattern:
+
+### Arrange
+
+Sets up the initial conditions for the test:
+
+```gherkin
+Given a workflow with definition:
+"""
+yaml
+<WORKFLOW_DEFINITION>
+"""
+And given the workflow input is:
+"""
+yaml
+<INPUT_DATA>
+"""
+```
+
+### Act
+
+Performs the action being tested:
+
+```gherkin
+When the workflow is executed
+```
+
+### Assert
+
+Verifies the expected outcome:
+
+```gherkin
+Then the workflow should complete
+And the workflow output should have a 'result' property with value:
+"""
+yaml
+status: success
+"""
+```
+
+## Getting Started
+
+To start using the CTK:
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/serverlessworkflow/specification.git
+cd specification/ctk
+```
+
+### 2. Review Available Features
+
+Explore the test features in the `/ctk/features` directory:
+
+```bash
+ls features/
+# call-http.feature
+# call-grpc.feature
+# data-flow.feature
+# error-handling.feature
+# ...
+```
+
+### 3. Implement Step Definitions
+
+Create step definitions in your preferred language and testing framework to execute the Gherkin scenarios against your implementation.
+
+### 4. Run the Tests
+
+Execute the test suite using your chosen test runner.
+
+## Test Coverage
+
+The CTK covers all major aspects of the Serverless Workflow DSL:
+
+- Task execution (HTTP, gRPC, OpenAPI, AsyncAPI)
+- Data flow and transformation
+- Error handling and retries
+- Event processing
+- Control flow (conditional, parallel, iterative)
+- Timeouts and cancellation
+- Subflow execution
+- Extension points
+
+## Contributing
+
+The CTK is continuously evolving. Contributions are welcome:
+
+- **Add Test Scenarios**: Expand coverage for edge cases
+- **Improve Documentation**: Clarify test intent and expectations
+- **Report Issues**: Identify gaps or ambiguities in tests
+- **Share Implementations**: Contribute step definitions for different languages
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Conformance Testing Guide" icon="clipboard-check" href="/ecosystem/ctk/conformance-testing">
+    Learn how to validate your implementation
+  </Card>
+  
+  <Card title="BDD Guide" icon="users" href="/ecosystem/ctk/bdd">
+    Use the CTK for Behavior-Driven Development
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/serverlessworkflow/specification/tree/main/ctk">
+    Access the complete test suite
+  </Card>
+  
+  <Card title="Community Slack" icon="slack" href="https://slack.cncf.io/">
+    Get help on #serverless-workflow
+  </Card>
+</CardGroup>

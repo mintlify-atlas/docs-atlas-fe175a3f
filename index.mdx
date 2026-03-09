@@ -1,97 +1,165 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Serverless Workflow Specification"
+description: "A vendor-neutral, open-source specification for defining and executing DSL-based workflows in serverless environments"
 ---
 
-## Setting up
+<div className="bg-gradient-to-r from-[#f9fafb] to-[#e0e7ff] rounded-lg p-8 mb-8">
+  <h1 className="text-5xl font-bold text-[#1f2937] mb-4">
+    Serverless Workflow
+  </h1>
+  <p className="text-xl text-[#2c3e66] mb-6">
+    A vendor-neutral, open-source, and community-driven DSL for defining workflows in serverless environments
+  </p>
+  <div className="flex gap-4">
+    <a 
+      href="/quickstart" 
+      className="inline-block px-6 py-3 bg-transparent text-[#f9735b] border-2 border-[#f9735b] rounded font-semibold hover:bg-[#f9735b] hover:text-white transition-colors"
+    >
+      Get Started
+    </a>
+    <a 
+      href="/reference/workflow" 
+      className="inline-block px-6 py-3 bg-transparent text-[#2c3e66] border-2 border-[#2c3e66] rounded font-semibold hover:bg-[#2c3e66] hover:text-white transition-colors"
+    >
+      API Reference
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Why Serverless Workflow?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
+Serverless Workflow simplifies orchestration of complex processes across diverse environments, providing a unified syntax for defining and executing workflows without platform dependencies.
+
+<CardGroup cols={2}>
+  <Card title="Easy to Use" icon="wand-magic-sparkles">
+    Designed for universal understanding with intuitive, imperative DSL that enables quick workflow creation
+  </Card>
+  <Card title="Event Driven" icon="bolt">
+    Seamless event integration with CloudEvents support for event-driven architectures
+  </Card>
+  <Card title="Service Oriented" icon="diagram-project">
+    Integrate with service-oriented architectures using HTTP, gRPC, OpenAPI, AsyncAPI, and more
+  </Card>
+  <Card title="Cloud Agnostic" icon="cloud">
+    Vendor-neutral and portable across different cloud providers and environments
+  </Card>
+  <Card title="Fault Tolerant" icon="shield-check">
+    Built-in error handling strategies with retry policies for robust workflow execution
+  </Card>
+  <Card title="Schedulable" icon="clock">
+    Schedule workflows using CRON expressions or trigger based on events
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="Event-Driven Workflow Orchestration" icon="bolt">
+    Build workflows that respond to events from any source. Support for CloudEvents and custom event formats enables reactive architectures.
+  </Accordion>
+  
+  <Accordion title="Protocol & Service Integration" icon="plug">
+    Native support for HTTP, gRPC, OpenAPI, and AsyncAPI protocols. Easily call external services and orchestrate microservices.
+  </Accordion>
+  
+  <Accordion title="Fault Tolerance & Retries" icon="rotate">
+    Define comprehensive error handling with retry policies, timeouts, and custom error types to ensure reliable execution.
+  </Accordion>
+  
+  <Accordion title="Runtime Expressions" icon="code">
+    Transform data using jq or JavaScript expressions. Filter, map, and manipulate workflow data at runtime.
+  </Accordion>
+  
+  <Accordion title="Extensibility" icon="puzzle-piece">
+    Create custom functions, catalogs, and extensions to adapt workflows to your specific needs.
+  </Accordion>
+  
+  <Accordion title="CNCF Project" icon="cloud">
+    Hosted by the Cloud Native Computing Foundation (CNCF) as a Sandbox project since July 2020.
+  </Accordion>
+</AccordionGroup>
+
+## Quick Example
+
+Here's a simple workflow that calls an HTTP endpoint and processes the response:
+
+```yaml workflow.yaml
+document:
+  dsl: 1.0.3
+  namespace: examples
+  name: hello-world
+  version: 1.0.0
+do:
+  - greet:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/greet
+```
+
+<Card title="Learn More" icon="book" href="/quickstart">
+  Follow our quickstart guide to create your first workflow
 </Card>
 
-## Make it yours
+## Explore the Documentation
 
-Design a docs site that looks great and empowers your users.
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="/introduction">
+    Learn the fundamentals and create your first workflow
+  </Card>
+  <Card title="Core Concepts" icon="lightbulb" href="/core/workflows">
+    Understand workflows, tasks, events, and data flow
+  </Card>
+  <Card title="API Reference" icon="code" href="/reference/workflow">
+    Complete reference for all DSL elements and properties
+  </Card>
+  <Card title="Examples" icon="flask" href="/examples/overview">
+    Explore practical examples and real-world patterns
+  </Card>
+  <Card title="Use Cases" icon="briefcase" href="/use-cases/overview">
+    See how Serverless Workflow solves real problems
+  </Card>
+  <Card title="Ecosystem" icon="puzzle-piece" href="/ecosystem/overview">
+    Discover SDKs, runtimes, and tooling
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+## Ecosystem
 
-## Create beautiful pages
+Serverless Workflow provides a comprehensive ecosystem for workflow orchestration:
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="SDKs" icon="cube" href="/ecosystem/sdks">
+    Libraries for .NET, Go, Java, PHP, Python, Rust, and TypeScript
+  </Card>
+  <Card title="Runtimes" icon="server" href="/ecosystem/runtimes">
+    Production-ready implementations including Apache KIE SonataFlow and Synapse
+  </Card>
+  <Card title="Tooling" icon="wrench" href="/ecosystem/tooling">
+    VS Code extension for authoring and validating workflows
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Community
 
-## Need inspiration?
+<Note>
+  Serverless Workflow is a CNCF Sandbox project with a growing community of contributors and adopters.
+</Note>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Join our community to contribute, ask questions, and share your experiences:
+
+<CardGroup cols={2}>
+  <Card title="GitHub" icon="github" href="https://github.com/serverlessworkflow/specification">
+    View the specification, contribute, and report issues
+  </Card>
+  <Card title="Slack" icon="slack" href="https://cloud-native.slack.com/messages/serverless-workflow">
+    Join the #serverless-workflow channel on CNCF Slack
+  </Card>
+  <Card title="Weekly Meetings" icon="calendar" href="/community/meetings">
+    Join our weekly community meetings every Thursday at 9AM ET
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/community/contributing">
+    Learn how to contribute to the specification
+  </Card>
+</CardGroup>

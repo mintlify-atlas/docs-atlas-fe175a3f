@@ -1,0 +1,681 @@
+---
+title: Runtime Expressions
+description: Using jq and JavaScript runtime expressions with arguments and examples in Serverless Workflow
+---
+
+## Overview
+
+Runtime expressions serve as dynamic elements that enable flexible and adaptable workflow behaviors. These expressions provide a means to evaluate conditions, transform data, and make decisions during the execution of workflows.
+
+Runtime expressions allow for the incorporation of variables, functions, and operators to create logic that responds to changing conditions and input data. These expressions can range from simple comparisons to complex computations and transformations involving multiple variables and data sources.
+
+<Info>
+  One key aspect of runtime expressions is their ability to adapt to runtime data and context, enabling dynamic decision-making based on real-time information.
+</Info>
+
+## Expression Modes
+
+Runtime expressions in Serverless Workflow can be evaluated using either **strict** mode or **loose** mode:
+
+### Strict Mode (Default)
+
+In strict mode, all expressions must be properly identified with `${}` syntax:
+
+```yaml
+taskName:
+  call: http
+  with:
+    uri: ${ "https://api.example.com/users/" + .userId }  # Valid
+    userId: ${ .userId }                                    # Valid
+```
+
+<ParamField path="evaluate.mode" type="string" default="strict">
+  Evaluation mode for runtime expressions. Options: `strict` or `loose`
+</ParamField>
+
+### Loose Mode
+
+In loose mode, expressions are evaluated more liberally, allowing for a wider range of input formats:
+
+```yaml
+evaluate:
+  mode: loose
+
+do:
+  - taskName:
+      call: http
+      with:
+        uri: https://api.example.com/users/${.userId}  # Valid in loose mode
+```
+
+<Warning>
+  While loose mode offers flexibility, strict mode ensures strict adherence to syntax rules and is recommended for better error detection.
+</Warning>
+
+## Default Runtime Expression Language: jq
+
+All runtimes **must** support the default runtime expression language, which is [`jq`](https://jqlang.github.io/jq/).
+
+jq is a lightweight and flexible command-line JSON processor that is perfect for querying and transforming JSON data.
+
+### Basic jq Expressions
+
+#### Identity and Field Access
+
+```yaml
+# Identity - returns input unchanged
+output:
+  as: ${ . }
+
+# Field access
+output:
+  as: ${ .userId }
+
+# Nested field access
+output:
+  as: ${ .user.profile.email }
+
+# Array element access
+output:
+  as: ${ .items[0] }
+```
+
+#### Operators
+
+```yaml
+# Arithmetic
+set:
+  total: ${ .price * .quantity }
+  discounted: ${ .price - (.price * .discount) }
+  average: ${ .sum / .count }
+
+# String concatenation
+set:
+  fullName: ${ .firstName + " " + .lastName }
+  greeting: ${ "Hello, " + .name + "!" }
+
+# Comparison
+if: ${ .age >= 18 }
+if: ${ .status == "active" }
+if: ${ .priority != "low" }
+
+# Logical operators
+if: ${ .isActive and .isVerified }
+if: ${ .isPremium or .isTrial }
+if: ${ not .isDeleted }
+```
+
+#### Conditionals
+
+```yaml
+# If-then-else
+output:
+  as: ${ if .status == "premium" then .fullData else .basicData end }
+
+# Multiple conditions
+output:
+  as: ${ 
+    if .priority == "high" then "urgent"
+    elif .priority == "medium" then "normal"
+    else "low"
+    end 
+  }
+```
+
+### Advanced jq Expressions
+
+#### Array Operations
+
+```yaml
+# Map - transform each element
+output:
+  as: ${ .items | map(.price) }
+
+# Filter - select elements
+output:
+  as: ${ .users | map(select(.active == true)) }
+
+# Sort
+output:
+  as: ${ .items | sort_by(.price) }
+
+# Reverse sort
+output:
+  as: ${ .items | sort_by(.price) | reverse }
+
+# Get length
+output:
+  as: ${ .items | length }
+
+# Sum values
+output:
+  as: ${ .items | map(.price) | add }
+
+# First and last elements
+output:
+  as: ${ .items | first }
+  as: ${ .items | last }
+```
+
+#### Object Operations
+
+```yaml
+# Construct objects
+output:
+  as: ${ { id: .userId, name: .userName, email: .userEmail } }
+
+# Merge objects
+output:
+  as: ${ . + { timestamp: now, status: "processed" } }
+
+# Select specific fields
+output:
+  as: ${ { id, name, email } }  # Shorthand for { id: .id, name: .name, email: .email }
+
+# Remove fields
+output:
+  as: ${ del(.password, .secretKey) }
+
+# Get keys
+output:
+  as: ${ keys }
+
+# Get values
+output:
+  as: ${ values }
+```
+
+#### String Operations
+
+```yaml
+# String interpolation
+output:
+  as: ${ "User \(.userId) has \(.orderCount) orders" }
+
+# Split string
+output:
+  as: ${ .fullName | split(" ") }
+
+# Join array
+output:
+  as: ${ .tags | join(", ") }
+
+# Convert case
+output:
+  as: ${ .name | ascii_upcase }
+  as: ${ .name | ascii_downcase }
+
+# Test regex
+if: ${ .email | test("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") }
+
+# String length
+output:
+  as: ${ .message | length }
+```
+
+#### Null Handling
+
+```yaml
+# Default value if null
+output:
+  as: ${ .email // "no-email@example.com" }
+
+# Check if null
+if: ${ .value != null }
+
+# Select non-null values
+output:
+  as: ${ [.field1, .field2, .field3] | map(select(. != null)) }
+```
+
+### Complex jq Examples
+
+#### Data Transformation Pipeline
+
+```yaml
+processOrders:
+  call: http
+  with:
+    method: get
+    endpoint:
+      uri: https://api.example.com/orders
+  output:
+    as: ${ 
+      .body.orders | 
+      map(select(.status == "completed")) |
+      map({
+        orderId: .id,
+        customer: .customer.name,
+        total: .items | map(.price * .quantity) | add,
+        itemCount: .items | length
+      }) |
+      sort_by(.total) |
+      reverse
+    }
+```
+
+#### Aggregation and Statistics
+
+```yaml
+calculateStats:
+  call: getData
+  output:
+    as: ${ {
+      count: .items | length,
+      total: .items | map(.value) | add,
+      average: (.items | map(.value) | add) / (.items | length),
+      min: .items | map(.value) | min,
+      max: .items | map(.value) | max,
+      items: .items | map({ id: .id, value: .value })
+    } }
+```
+
+#### Nested Data Extraction
+
+```yaml
+extractUserData:
+  call: getUserProfile
+  output:
+    as: ${ {
+      userId: .id,
+      profile: {
+        name: .firstName + " " + .lastName,
+        contact: {
+          email: .email,
+          phone: .phoneNumber // "Not provided"
+        },
+        address: .addresses | map(select(.primary == true)) | first
+      },
+      orders: .orders | map({
+        id: .id,
+        date: .createdAt,
+        total: .total,
+        status: .status
+      }),
+      totalSpent: .orders | map(.total) | add
+    } }
+```
+
+## Alternative Runtime Expression Languages
+
+Runtimes **may** optionally support other runtime expression languages, which authors can specifically use by configuring the workflow:
+
+### JavaScript Runtime Expressions
+
+```yaml
+evaluate:
+  language: javascript
+
+do:
+  - processData:
+      input:
+        from: ${ 
+          const fullName = `${firstName} ${lastName}`;
+          const age = new Date().getFullYear() - birthYear;
+          return { fullName, age, timestamp: Date.now() };
+        }
+      call: processor
+      with:
+        data: ${ $input }
+```
+
+<ParamField path="evaluate.language" type="string" default="jq">
+  Runtime expression language to use. Default is `jq`, but runtimes may support others like `javascript`
+</ParamField>
+
+### JavaScript Examples
+
+```yaml
+# Array operations
+output:
+  as: ${ items.filter(item => item.active).map(item => item.name) }
+
+# Complex logic
+output:
+  as: ${ 
+    const total = items.reduce((sum, item) => sum + item.price, 0);
+    const average = total / items.length;
+    return { total, average, count: items.length };
+  }
+
+# Date manipulation
+set:
+  expiresAt: ${ new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }
+```
+
+<Note>
+  When using alternative expression languages, ensure your runtime supports them. The workflow may not be portable to runtimes that only support jq.
+</Note>
+
+## Runtime Expression Arguments
+
+Serverless Workflow defines several arguments that runtimes **must** provide during the evaluation of runtime expressions:
+
+### Available Arguments
+
+| Name | Type | Description |
+|:-----|:----:|:------------|
+| `$context` | `object` | The workflow's context data |
+| `$input` | `any` | The task's transformed input |
+| `$output` | `any` | The task's transformed output |
+| `$secrets` | `object` | A key/value map of the workflow secrets (only in `input.from`) |
+| `$authorization` | `object` | Describes the resolved authorization |
+| `$task` | `object` | Describes the current task |
+| `$workflow` | `object` | Describes the current workflow |
+| `$runtime` | `object` | Describes the runtime |
+
+### $context
+
+The workflow's context data, which persists across task executions:
+
+```yaml
+do:
+  - storeUser:
+      call: userService
+      export:
+        as: ${ $context + { user: $output } }
+  
+  - fetchOrders:
+      call: orderService
+      with:
+        userId: ${ $context.user.id }  # Access previously stored data
+```
+
+### $input
+
+The current task's transformed input:
+
+```yaml
+processData:
+  input:
+    from: ${ { userId: .id, data: .payload } }
+  call: processor
+  with:
+    # $input contains { userId: "...", data: {...} }
+    userId: ${ $input.userId }
+    data: ${ $input.data }
+```
+
+### $output
+
+The current task's raw output (used in `output.as` and `export.as`):
+
+```yaml
+fetchData:
+  call: http
+  with:
+    method: get
+    endpoint:
+      uri: https://api.example.com/data
+  output:
+    as: ${ { items: $output.body.results, count: $output.body.total } }
+  export:
+    as: ${ $context + { fetchedData: $output } }
+```
+
+### $secrets
+
+A key/value map of workflow secrets (only available in `input.from`):
+
+```yaml
+use:
+  secrets:
+    - apiToken
+    - databasePassword
+
+input:
+  from: ${ { token: $secrets.apiToken } }
+
+do:
+  - callApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+          authentication:
+            bearer: ${ $secrets.apiToken }
+```
+
+<Warning>
+  Use `$secrets` with caution: incorporating them in expressions or passing them as call inputs may inadvertently expose sensitive information. Secrets can only be used in the `input.from` runtime expression to avoid unintentional bleeding.
+</Warning>
+
+### $task
+
+Describes the current task:
+
+| Property | Type | Description | Example |
+|:---------|:----:|:------------|:--------|
+| `name` | `string` | The task's name | `getPet` |
+| `reference` | `string` | The task's reference | `/do/2/myTask` |
+| `definition` | `object` | The task definition as parsed object | `{ "call": "http", "with": {...} }` |
+| `input` | `any` | The task's raw input (before `input.from`) | |
+| `output` | `any` | The task's raw output (before `output.as`) | |
+| `startedAt` | `object` | The start time of the task | |
+
+```yaml
+logTask:
+  call: http
+  with:
+    method: post
+    endpoint:
+      uri: https://logger.example.com
+    body:
+      taskName: ${ $task.name }
+      taskReference: ${ $task.reference }
+      message: Executing task
+```
+
+### $workflow
+
+Describes the current workflow:
+
+| Property | Type | Description | Example |
+|:---------|:----:|:------------|:--------|
+| `id` | `string` | Unique ID of the workflow execution | `4a5c8422-5868-4e12-8dd9-220810d2b9ee` |
+| `definition` | `object` | The workflow's definition as parsed object | `{ "document": {...}, "do": [...] }` |
+| `input` | `any` | The workflow's raw input (before `input.from`) | |
+| `startedAt` | `object` | The start time of the execution | |
+
+```yaml
+logWorkflow:
+  call: http
+  with:
+    method: post
+    endpoint:
+      uri: https://logger.example.com
+    body:
+      workflowId: ${ $workflow.id }
+      workflowName: ${ $workflow.definition.document.name }
+      startedAt: ${ $workflow.startedAt.iso8601 }
+```
+
+### $runtime
+
+Describes the runtime executing the workflow:
+
+| Property | Type | Description | Example |
+|:---------|:----:|:------------|:--------|
+| `name` | `string` | Human-friendly name for the runtime | `Synapse`, `Sonata` |
+| `version` | `string` | Version of the runtime | `1.4.78`, `v0.7.43-alpine` |
+| `metadata` | `object` | Implementation-specific key-value pairs | `{ "organization": {...}, "featureFlags": [...] }` |
+
+```yaml
+logRuntime:
+  call: http
+  with:
+    method: post
+    endpoint:
+      uri: https://telemetry.example.com
+    body:
+      runtime: ${ $runtime.name }
+      version: ${ $runtime.version }
+      metadata: ${ $runtime.metadata }
+```
+
+### $authorization
+
+Describes the resolved authorization for the task:
+
+| Property | Type | Description | Example |
+|:---------|:----:|:------------|:--------|
+| `scheme` | `string` | The resolved authorization scheme | `Bearer` |
+| `parameter` | `string` | The resolved authorization parameter | `eyJhbGc...` |
+
+```yaml
+makeAuthenticatedCall:
+  call: http
+  with:
+    method: get
+    endpoint:
+      uri: https://api.example.com/data
+      authentication: myAuth
+  output:
+    as: ${ { 
+      data: $output.body, 
+      authScheme: $authorization.scheme 
+    } }
+```
+
+### DateTime Descriptor
+
+The `startedAt` properties use a DateTime descriptor with multiple formats:
+
+| Property | Type | Description | Example |
+|:---------|:----:|:------------|:--------|
+| `iso8601` | `string` | ISO 8601 date time string | `2022-01-01T12:00:00Z` |
+| `epoch.seconds` | `integer` | Seconds since Unix Epoch | `1641024000` |
+| `epoch.milliseconds` | `integer` | Milliseconds since Unix Epoch | `1641024000123` |
+
+```yaml
+logTimestamp:
+  call: logger
+  with:
+    timestamp: ${ $workflow.startedAt.iso8601 }
+    epochSeconds: ${ $workflow.startedAt.epoch.seconds }
+    epochMillis: ${ $workflow.startedAt.epoch.milliseconds }
+```
+
+## Argument Availability by Context
+
+| Runtime Expression | `$context` | `$input` | `$output` | `$secrets` | `$task` | `$workflow` | `$runtime` | `$authorization` |
+|:-------------------|:----------:|:--------:|:---------:|:----------:|:-------:|:-----------:|:----------:|:----------------:|
+| Workflow `input.from` | | | | ✔ | | ✔ | ✔ | |
+| Task `if` | ✔ | | | ✔ | ✔ | ✔ | ✔ | |
+| Task `input.from` | ✔ | | | ✔ | ✔ | ✔ | ✔ | |
+| Task definition | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Task `output.as` | ✔ | ✔ | | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Task `export.as` | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Workflow `output.as` | ✔ | | | ✔ | | ✔ | ✔ | |
+
+## Error Handling
+
+When the evaluation of an expression fails, runtimes **must** raise an error:
+
+- Type: `https://serverlessworkflow.io/spec/1.0.0/errors/expression`
+- Status: `400`
+
+```yaml
+try:
+  call: processor
+  with:
+    value: ${ .nonExistentField.nested }  # May cause expression error
+catch:
+  errors:
+    with:
+      type: https://serverlessworkflow.io/spec/1.0.0/errors/expression
+  do:
+    - logError:
+        call: logger
+        with:
+          message: Expression evaluation failed
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Keep expressions simple">
+    Break complex transformations into multiple steps using intermediate tasks for better readability and debugging.
+  </Step>
+  
+  <Step title="Use meaningful variable names">
+    When using `for` loops or destructuring, choose descriptive names that make the expression self-documenting.
+  </Step>
+  
+  <Step title="Handle null values">
+    Always consider that fields might be null and use the `//` operator or conditionals to provide defaults.
+  </Step>
+  
+  <Step title="Test expressions incrementally">
+    Build complex expressions step by step, testing each part before combining them.
+  </Step>
+  
+  <Step title="Use strict mode">
+    Prefer strict mode for better error detection and clearer expression boundaries.
+  </Step>
+  
+  <Step title="Avoid exposing secrets">
+    Be careful when using `$secrets` in expressions. Only use them where necessary and avoid logging them.
+  </Step>
+</Steps>
+
+## Common Expression Patterns
+
+### Pattern: Safe Field Access
+
+```yaml
+# Safe nested field access with defaults
+output:
+  as: ${ .user.profile.email // .user.email // "no-email@example.com" }
+```
+
+### Pattern: Conditional Field Selection
+
+```yaml
+# Select different fields based on condition
+output:
+  as: ${ if .isPremium then .fullProfile else (.basicProfile | { name, email }) end }
+```
+
+### Pattern: Array Transformation
+
+```yaml
+# Transform and filter array in one expression
+output:
+  as: ${ 
+    .items | 
+    map(select(.quantity > 0)) |
+    map({ id: .id, total: .price * .quantity })
+  }
+```
+
+### Pattern: Object Merging
+
+```yaml
+# Merge multiple objects with computed fields
+output:
+  as: ${ 
+    .baseData + 
+    .additionalData + 
+    { 
+      computedField: .value1 + .value2,
+      timestamp: now 
+    }
+  }
+```
+
+### Pattern: Dynamic Property Names
+
+```yaml
+# Create object with dynamic property names
+output:
+  as: ${ { (.propertyName): .propertyValue } }
+```
+
+## Related Topics
+
+- [Data Flow](/core/data-flow) - Learn how expressions fit into data flow
+- [Tasks](/core/tasks) - Use expressions in task definitions
+- [Workflows](/core/workflows) - Use expressions in workflow configuration
+- [Fault Tolerance](/core/fault-tolerance) - Handle expression errors

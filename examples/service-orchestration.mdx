@@ -1,0 +1,482 @@
+---
+title: Service Orchestration Examples
+description: Integrating with HTTP, OpenAPI, gRPC, AsyncAPI, and authentication patterns
+---
+
+Service orchestration examples demonstrate how to integrate workflows with external services, APIs, and message brokers using various protocols and authentication methods.
+
+## HTTP/REST Integration
+
+Call HTTP endpoints with various configuration options.
+
+<Tabs>
+  <Tab title="Basic HTTP">
+    ```yaml do-single.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: call-http-shorthand-endpoint
+      version: '0.1.0'
+    do:
+      - getPet:
+          call: http
+          with:
+            method: get
+            endpoint: https://petstore.swagger.io/v2/pet/{petId}
+    ```
+    
+    **What it demonstrates:**
+    - Simple HTTP GET request
+    - Path parameter interpolation with `{petId}`
+    - Shorthand endpoint notation (string)
+  </Tab>
+  
+  <Tab title="With Query Parameters">
+    ```yaml call-http-query-parameters.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: http-query-params
+      version: '1.0.0'
+    input:
+      schema:
+        format: json
+        document:
+          type: object
+          required:
+            - searchQuery
+          properties:
+            searchQuery:
+              type: string
+    do:
+      - searchStarWarsCharacters:
+          call: http
+          with:
+            method: get
+            endpoint: https://swapi.dev/api/people/
+            query:
+              search: ${.searchQuery}
+    ```
+    
+    **What it demonstrates:**
+    - Input schema validation
+    - Query parameter configuration
+    - Dynamic query values from workflow input
+  </Tab>
+  
+  <Tab title="Expression Interpolation">
+    ```yaml call-http-endpoint-interpolation.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: call-http-shorthand-endpoint
+      version: '0.1.0'
+    do:
+      - getPet:
+          call: http
+          with:
+            headers:
+              content-type: application/json
+            method: get
+            endpoint: ${ "https://petstore.swagger.io/v2/pet/\(.petId)" }
+    ```
+    
+    **What it demonstrates:**
+    - Full expression-based endpoint construction
+    - Setting HTTP headers
+    - String interpolation syntax (`\(.petId)`)
+    
+    **Use case:** Dynamic endpoint construction, adding headers, or query parameters.
+  </Tab>
+</Tabs>
+
+## OpenAPI Integration
+
+Type-safe API calls using OpenAPI/Swagger specifications.
+
+<Tabs>
+  <Tab title="Basic OpenAPI">
+    ```yaml call-openapi.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: openapi-example
+      version: '0.1.0'
+    do:
+      - findPet:
+          call: openapi
+          with:
+            document: 
+              endpoint: https://petstore.swagger.io/v2/swagger.json
+            operationId: findPetsByStatus
+            parameters:
+              status: available
+    ```
+    
+    **What it demonstrates:**
+    - Calling OpenAPI operations by ID
+    - Loading OpenAPI spec from URL
+    - Type-safe parameter passing
+    - Automatic request/response validation
+  </Tab>
+  
+  <Tab title="Multi-Step API Chain">
+    ```yaml star-wars-homeworld.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: star-wars-homeplanet
+      version: '1.0.0'
+    input:
+      schema:
+        format: json
+        document:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+              description: The id of the star wars character to get
+              minimum: 1
+    do:
+      - getStarWarsCharacter:
+          call: http
+          with:
+            method: get
+            endpoint: https://swapi.dev/api/people/{id}
+            output: response
+          export:
+            as:
+              homeworld: ${ .content.homeworld }
+      - getStarWarsHomeworld:
+          call: http
+          with:
+            method: get
+            endpoint: ${ $context.homeworld }
+    ```
+    
+    **What it demonstrates:**
+    - Chaining multiple API calls
+    - Exporting data with `export.as`
+    - Using exported context in subsequent calls
+    - Schema validation on workflow input
+    
+    **Use case:** Multi-step data enrichment, following API relationships, or aggregating data from multiple sources.
+  </Tab>
+</Tabs>
+
+## gRPC Service Calls
+
+Invoking gRPC methods from workflows.
+
+```yaml call-grpc.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: grpc-example
+  version: '0.1.0'
+do:
+  - greet:
+      call: grpc
+      with:
+        proto: 
+          endpoint: file://app/greet.proto
+        service:
+          name: GreeterApi.Greeter
+          host: localhost
+          port: 5011
+        method: SayHello
+        arguments:
+          name: ${ .user.preferredDisplayName }
+```
+
+**What it demonstrates:**
+- Loading Protocol Buffer definitions
+- Specifying gRPC service and method
+- Service endpoint configuration (host/port)
+- Passing method arguments from workflow data
+
+**Use case:** Integrating with microservices, calling internal APIs, or high-performance service communication.
+
+## AsyncAPI / Message Broker Integration
+
+<Tabs>
+  <Tab title="Publishing Messages">
+    ```yaml call-asyncapi-publish.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: bearer-auth
+      version: '0.1.0'
+    do:
+      - findPet:
+          call: asyncapi
+          with:
+            document:
+              endpoint: https://fake.com/docs/asyncapi.json
+            operation: findPetsByStatus
+            server:
+              name: staging
+            message:
+              payload:
+                petId: ${ .pet.id }
+            authentication:
+              bearer:
+                token: ${ .token }
+    ```
+    
+    **What it demonstrates:**
+    - Publishing to message brokers via AsyncAPI
+    - Selecting specific server from AsyncAPI spec
+    - Message payload configuration
+    - Bearer token authentication
+  </Tab>
+  
+  <Tab title="Subscribing (Consume Until)">
+    ```yaml call-asyncapi-subscribe-consume-until.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: consume-until-condition
+      version: '0.1.0'
+    do:
+      - watchParcels:
+          call: asyncapi
+          with:
+            document:
+              endpoint: https://fake-parcel-delivery.com/async-api.json
+            operation: watchParcel
+            message:
+              consume:
+                until: ${ .status == "failed" or .status == "delivered" }
+              payload:
+                parcelId: ${ .parcel.id }
+    ```
+    
+    **What it demonstrates:**
+    - Subscribing to message streams
+    - Conditional message consumption with `until`
+    - Processing messages until completion criteria met
+    
+    **Use case:** Message queue processing, pub/sub patterns, or event streaming.
+  </Tab>
+</Tabs>
+
+## Authentication Patterns
+
+<Tabs>
+  <Tab title="OAuth2">
+    ```yaml authentication-oauth2.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: oauth2-authentication
+      version: '0.1.0'
+    do:
+      - getPet:
+          call: http
+          with:
+            method: get
+            endpoint:
+              uri: https://petstore.swagger.io/v2/pet/{petId}
+              authentication:
+                oauth2:
+                  authority: http://keycloak/realms/fake-authority
+                  endpoints:
+                    token: /auth/token
+                    introspection: /auth/introspect
+                  grant: client_credentials
+                  client:
+                    id: workflow-runtime-id
+                    secret: workflow-runtime-secret
+    ```
+    
+    **What it demonstrates:**
+    - OAuth2 client credentials flow
+    - Custom token endpoints
+    - Client ID and secret configuration
+    - Automatic token management
+  </Tab>
+  
+  <Tab title="Bearer Token">
+    ```yaml authentication-bearer.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: bearer-auth
+      version: '0.1.0'
+    do:
+      - getPet:
+          call: http
+          with:
+            method: get
+            endpoint:
+              uri: https://petstore.swagger.io/v2/pet/{petId}
+              authentication:
+                bearer:
+                  token: ${ $secrets.MY_SECRET_API_TOKEN }
+    ```
+    
+    **What it demonstrates:**
+    - Bearer token authentication
+    - Accessing secrets via `$secrets` runtime variable
+    - Static token configuration
+  </Tab>
+  
+  <Tab title="OIDC">
+    ```yaml authentication-oidc.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: oidc-authentication
+      version: '0.1.0'
+    do:
+      - getPet:
+          call: http
+          with:
+            method: get
+            endpoint:
+              uri: https://petstore.swagger.io/v2/pet/{petId}
+              authentication:
+                oidc:
+                  authority: https://oidc-server.com
+                  grant: client_credentials
+                  client:
+                    id: workflow-client-id
+                    secret: workflow-client-secret
+                  scopes:
+                  - petstore:read
+    ```
+    
+    **What it demonstrates:**
+    - OpenID Connect authentication
+    - Discovery endpoint usage
+    - Scope-based authorization
+    - Client credentials grant type
+    
+    **Use case:** Secure API calls, token-based auth, or enterprise SSO integration.
+  </Tab>
+</Tabs>
+
+## Advanced HTTP Features
+
+<Tabs>
+  <Tab title="Custom Headers & Expressions">
+    ```yaml call-http-query-headers-expressions.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: http-query-header-expressions
+      version: '1.0.0'
+    input:
+      schema:
+        format: json
+        document:
+          type: object
+          required:
+            - searchQuery
+          properties:
+            searchQuery:
+              type: string
+    do:
+      - searchStarWarsCharacters:
+          call: http
+          with:
+            method: get
+            endpoint:
+              uri: https://swapi.dev/api/people/
+              query:
+                search: ${.searchQuery}
+              headers:
+                x-api-key: ${ $secrets.SWAPI_KEY }
+                x-request-id: ${ $uuid() }
+                user-agent: ${ "Serverless-Workflow/" + $workflow.definition.document.version }
+    ```
+    
+    **What it demonstrates:**
+    - Custom HTTP headers with expressions
+    - Using runtime functions (`$uuid()`)
+    - Accessing workflow metadata
+    - Secret injection in headers
+  </Tab>
+  
+  <Tab title="HTTP Redirects">
+    ```yaml call-http-redirect.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: http-redirect
+      version: '0.1.0'
+    do:
+      - findPet:
+          call: http
+          with:
+            method: get
+            endpoint:
+              uri: https://petstore.swagger.io/v2/pet/{petId}
+              redirect:
+                max: 5
+                same-site: true
+    ```
+    
+    **What it demonstrates:**
+    - HTTP redirect handling
+    - Maximum redirect limit
+    - Same-site redirect restrictions
+    
+    **Use case:** Following API redirects, handling moved resources, or URL shorteners.
+  </Tab>
+</Tabs>
+
+## Reusable Service Definitions
+
+Define services once and reference them across tasks.
+
+```yaml authentication-reusable.yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: reusable-authentication
+  version: '0.1.0'
+use:
+  authentications:
+    petStoreAuth:
+      bearer:
+        token: ${ $secrets.PET_STORE_API_KEY }
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://petstore.swagger.io/v2/pet/{petId}
+          authentication: petStoreAuth
+  - updatePet:
+      call: http
+      with:
+        method: put
+        endpoint:
+          uri: https://petstore.swagger.io/v2/pet/{petId}
+          authentication: petStoreAuth
+```
+
+**What it demonstrates:**
+- Defining reusable authentication in `use.authentications`
+- Referencing auth by name across multiple tasks
+- DRY principle for service configuration
+
+**Use case:** Multiple calls to same service, consistent auth across workflow, or cleaner workflow definitions.
+
+## Summary
+
+Service orchestration enables:
+
+- **HTTP/REST** - Call RESTful APIs with full configuration control
+- **OpenAPI** - Type-safe API integration with automatic validation
+- **gRPC** - High-performance microservice communication
+- **AsyncAPI** - Message broker pub/sub patterns
+- **Authentication** - OAuth2, OIDC, Bearer, and custom auth methods
+- **Reusability** - Define once, use many times patterns
+
+These patterns enable workflows to orchestrate complex, multi-service interactions with proper authentication and error handling.

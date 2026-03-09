@@ -1,0 +1,393 @@
+---
+title: Error Handling Examples
+description: Robust error handling with try-catch, retries, and error raising
+---
+
+Error handling is critical for building reliable workflows. These examples demonstrate various strategies for catching, recovering from, and reporting errors.
+
+## Basic Try-Catch
+
+Catch errors and handle them gracefully.
+
+```yaml try-catch.yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: try-catch
+  version: '0.1.0'
+do:
+  - tryGetPet:
+      try:
+        - getPet:
+            call: http
+            with:
+              method: get
+              endpoint: https://petstore.swagger.io/v2/pet/{petId}
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+            status: 404
+```
+
+**What it demonstrates:**
+- Basic error catching with `try`/`catch`
+- Filtering errors by type and status code
+- Communication error handling (network failures, HTTP errors)
+- Preventing workflow failure on expected errors
+
+**Use case:** Handling HTTP 404s, network timeouts, or other recoverable errors.
+
+## Try-Catch with Recovery Actions
+
+Execute recovery tasks when errors occur.
+
+```yaml try-catch-then.yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: try-catch
+  version: '0.1.0'
+do:
+  - tryGetPet:
+      try:
+        - getPet:
+            call: http
+            with:
+              method: get
+              endpoint: https://petstore.swagger.io/v2/pet/{petId}
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+            status: 404
+        as: error
+        do:
+          - notifySupport:
+              emit:
+                event:
+                  with:
+                    source: https://petstore.swagger.io
+                    type: io.swagger.petstore.events.pets.not-found.v1
+                    data: ${ $error }
+          - setError:
+              set:
+                error: $error
+              export:
+                as: '$context + { error: $error }'
+  - buyPet:
+      if: $context.error == null
+      call: http
+      with:
+        method: put
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+        body: '${ . + { status: "sold" } }'
+```
+
+**What it demonstrates:**
+- Capturing error details with `as: error`
+- Executing multiple recovery tasks in `catch.do`
+- Emitting error events for monitoring
+- Storing error in context for later use
+- Conditional task execution based on error state
+- Graceful degradation (skip buying if pet not found)
+
+**Use case:** Error logging, alerting, partial failure handling, or compensating transactions.
+
+## Retry with Backoff
+
+Automatically retry failed operations with exponential backoff.
+
+<Tabs>
+  <Tab title="Inline Retry">
+    ```yaml try-catch-retry-inline.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: default
+      name: try-catch-retry
+      version: '0.1.0'
+    do:
+      - tryGetPet:
+          try:
+            - getPet:
+                call: http
+                with:
+                  method: get
+                  endpoint: https://petstore.swagger.io/v2/pet/{petId}
+          catch:
+            errors:
+              with:
+                type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+                status: 503
+            retry:
+              delay:
+                seconds: 3
+              backoff:
+                exponential: {}
+              limit:
+                attempt:
+                  count: 5
+    ```
+    
+    **What it demonstrates:**
+    - Automatic retry on specific error types (503 Service Unavailable)
+    - Initial delay configuration (3 seconds)
+    - Exponential backoff strategy
+    - Maximum retry attempts (5)
+    - Inline retry definition
+  </Tab>
+  
+  <Tab title="Reusable Retry">
+    ```yaml try-catch-retry-reusable.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: default
+      name: try-catch-retry-reusable
+      version: '0.1.0'
+    use:
+      retries:
+        exponentialBackoff:
+          delay:
+            seconds: 3
+          backoff:
+            exponential:
+              max:
+                seconds: 60
+          limit:
+            attempt:
+              count: 5
+    do:
+      - tryGetPet:
+          try:
+            - getPet:
+                call: http
+                with:
+                  method: get
+                  endpoint: https://petstore.swagger.io/v2/pet/{petId}
+          catch:
+            errors:
+              with:
+                type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+                status: 503
+            retry: exponentialBackoff
+    ```
+    
+    **What it demonstrates:**
+    - Defining reusable retry strategies in `use.retries`
+    - Maximum backoff cap (60 seconds)
+    - Referencing retry strategy by name
+    - DRY retry configuration across multiple tasks
+    
+    **Use case:** Transient failures, rate limiting, service unavailability, or network instability.
+  </Tab>
+</Tabs>
+
+## Raising Errors
+
+Explicitly raise errors for validation or exceptional conditions.
+
+<Tabs>
+  <Tab title="Inline Error">
+    ```yaml raise-inline.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: raise-not-implemented
+      version: '0.1.0'
+    do: 
+      - notImplemented:
+          raise:
+            error:
+              type: https://serverlessworkflow.io/errors/not-implemented
+              status: 500
+              title: Not Implemented
+              detail: ${ "The workflow '\( $workflow.definition.document.name ):\( $workflow.definition.document.version )' is a work in progress and cannot be run yet" }
+    ```
+    
+    **What it demonstrates:**
+    - Explicitly raising errors with `raise`
+    - RFC 7807 Problem Details format
+    - Custom error types
+    - HTTP status codes
+    - Dynamic error messages with expressions
+  </Tab>
+  
+  <Tab title="Reusable Error">
+    ```yaml raise-reusable.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: raise-reusable-error
+      version: '0.1.0'
+    use:
+      errors:
+        notImplemented:
+          type: https://serverlessworkflow.io/errors/not-implemented
+          status: 500
+          title: Not Implemented
+    do:
+      - raiseError:
+          raise:
+            error: notImplemented
+    ```
+    
+    **What it demonstrates:**
+    - Defining reusable errors in `use.errors`
+    - Referencing errors by name
+    - Consistent error definitions across workflow
+  </Tab>
+</Tabs>
+
+**Use case:** Input validation, business rule violations, or unsupported operations.
+
+## Conditional Error Handling
+
+Combine conditionals with error raising for validation.
+
+```yaml conditional-task.yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: conditional-task
+  version: '0.1.0'
+do:
+  - raiseErrorIfUnderage:
+      if: .customer.age < 18
+      raise:
+        error:
+          type: https://superbet-casinos.com/customer/access-forbidden
+          status: 400
+          title: Access Forbidden
+      then: end
+  - placeBet:
+      call: http
+      with:
+        method: post
+        endpoint: https://superbet-casinos.com/api/bet/on/football
+        body:
+          customer: .customer
+          bet: .bet
+```
+
+**What it demonstrates:**
+- Conditional error raising based on business rules
+- Early workflow termination with `then: end`
+- Input validation before processing
+- Preventing invalid operations
+
+**Use case:** Business rule validation, access control, or precondition checking.
+
+## Error Type Filtering
+
+Handle different error types with different strategies.
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: multi-catch
+  version: '0.1.0'
+do:
+  - processPayment:
+      try:
+        - charge:
+            call: http
+            with:
+              method: post
+              endpoint: https://payment.example.com/api/charge
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+            status: 503
+        retry:
+          delay:
+            seconds: 2
+          limit:
+            attempt:
+              count: 3
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+            status: 400
+        as: validationError
+        do:
+          - logValidation:
+              emit:
+                event:
+                  with:
+                    type: com.example.payment.validation-failed.v1
+                    data: ${ $validationError }
+```
+
+**What it demonstrates:**
+- Multiple catch blocks for different error types
+- Different handling strategies per error type
+- Retrying transient failures (503)
+- Logging validation errors (400) without retry
+
+**Use case:** Differentiated error handling, smart retry logic, or error categorization.
+
+## Error Context and Debugging
+
+Capture comprehensive error information for debugging.
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: error-context
+  version: '0.1.0'
+do:
+  - fetchData:
+      try:
+        - getData:
+            call: http
+            with:
+              method: get
+              endpoint: https://api.example.com/data/{id}
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        as: error
+        do:
+          - logError:
+              emit:
+                event:
+                  with:
+                    type: com.example.errors.communication.v1
+                    data:
+                      error: ${ $error }
+                      workflow:
+                        name: ${ $workflow.definition.document.name }
+                        version: ${ $workflow.definition.document.version }
+                        instanceId: ${ $workflow.id }
+                      context: ${ $context }
+                      timestamp: ${ now() }
+```
+
+**What it demonstrates:**
+- Capturing full error details
+- Including workflow metadata in error events
+- Workflow instance identification
+- Context snapshot at error time
+- Timestamp for error correlation
+
+**Use case:** Detailed error logging, debugging production issues, or error analytics.
+
+## Summary
+
+Robust error handling requires:
+
+- **Try-Catch** - Catch and handle errors gracefully
+- **Retry Logic** - Automatically retry transient failures
+- **Backoff Strategies** - Exponential backoff prevents overwhelming services
+- **Error Raising** - Explicit error creation for validation
+- **Error Filtering** - Handle different errors differently
+- **Error Context** - Capture sufficient information for debugging
+- **Recovery Actions** - Compensating logic when errors occur
+- **Graceful Degradation** - Continue workflow with reduced functionality
+
+Combining these patterns creates resilient workflows that handle failures intelligently and provide excellent observability.

@@ -1,0 +1,474 @@
+---
+title: Core Concepts
+description: Understand the fundamental concepts of Serverless Workflow including workflows, tasks, events, and data flow
+---
+
+## Overview
+
+This guide introduces the core concepts of Serverless Workflow DSL. Understanding these fundamentals will help you design and implement effective serverless workflows.
+
+## Workflow
+
+A Serverless Workflow is a sequence of specific tasks that are executed in a defined order. By default, this order follows the declaration sequence within the workflow definition. Workflows are designed to automate processes and orchestrate various serverless functions and services.
+
+### Key Characteristics
+
+- **Sequential Execution**: Tasks execute in the order they are defined
+- **Flexible Triggering**: Can be triggered on request, scheduled with CRON expressions, or initiated by events
+- **Data Processing**: Optionally accepts inputs and produces outputs for data transformation
+
+<Info>
+Workflows serve as blueprints outlining the series of tasks required to execute a specific business operation, helping streamline operations, ensure consistency, and optimize efficiency.
+</Info>
+
+### Workflow Structure
+
+Every workflow must include:
+
+```yaml
+document:
+  dsl: '1.0.3'              # DSL version
+  namespace: my-namespace    # Logical grouping
+  name: my-workflow         # Unique identifier
+  version: '1.0.0'          # Semantic version
+
+do:
+  # Tasks are defined here
+```
+
+## Tasks
+
+Tasks are the fundamental computing units of a workflow. They define the different types of actions that a workflow can perform, including the ability to mutate input and output data. Tasks can also write to and modify context data, enabling complex and dynamic workflow behaviors.
+
+### Built-in Task Types
+
+The Serverless Workflow DSL defines several task types that runtimes must implement:
+
+<CardGroup cols={2}>
+  <Card title="Call" icon="phone">
+    **Purpose**: Call external services and functions
+    
+    Supports multiple protocols:
+    - HTTP/REST APIs
+    - gRPC services
+    - OpenAPI endpoints
+    - AsyncAPI messaging
+    - A2A (Application-to-Application)
+    - MCP (Message Channel Protocol)
+  </Card>
+  
+  <Card title="Do" icon="list">
+    **Purpose**: Define sequential subtasks
+    
+    Groups multiple tasks that execute one after another in a defined sequence.
+  </Card>
+  
+  <Card title="Fork" icon="code-branch">
+    **Purpose**: Execute tasks in parallel
+    
+    Defines two or more subtasks to perform concurrently, improving workflow efficiency.
+  </Card>
+  
+  <Card title="Switch" icon="shuffle">
+    **Purpose**: Conditional branching
+    
+    Dynamically selects and executes one of multiple alternative paths based on specified conditions.
+  </Card>
+  
+  <Card title="For" icon="repeat">
+    **Purpose**: Iteration over collections
+    
+    Iterates over a collection of items and conditionally performs a task for each item.
+  </Card>
+  
+  <Card title="Try" icon="shield-check">
+    **Purpose**: Error handling
+    
+    Attempts executing a specified task and handles any resulting errors gracefully, allowing the workflow to continue without interruption.
+  </Card>
+  
+  <Card title="Wait" icon="clock">
+    **Purpose**: Pause execution
+    
+    Pauses or waits for a specified duration before proceeding to the next task.
+  </Card>
+  
+  <Card title="Set" icon="pen-to-square">
+    **Purpose**: Data manipulation
+    
+    Dynamically sets the workflow's data during execution for state management.
+  </Card>
+  
+  <Card title="Listen" icon="ear-listen">
+    **Purpose**: Event consumption
+    
+    Listens for one or more events before continuing workflow execution.
+  </Card>
+  
+  <Card title="Emit" icon="signal-stream">
+    **Purpose**: Event publication
+    
+    Emits events to external systems for integration and notification.
+  </Card>
+  
+  <Card title="Run" icon="play">
+    **Purpose**: Execute processes
+    
+    Runs containers, scripts, shell commands, or even nested workflows.
+  </Card>
+  
+  <Card title="Raise" icon="triangle-exclamation">
+    **Purpose**: Error raising
+    
+    Raises an error and potentially faults the workflow for explicit failure handling.
+  </Card>
+</CardGroup>
+
+### Task Example
+
+```yaml
+do:
+  - fetchUserData:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/users/123
+      output:
+        as: ${ .response.body }
+```
+
+## Status Phases
+
+Both workflows and tasks can exist in several phases, each indicating the current state of execution:
+
+| Phase | Description |
+|-------|-------------|
+| `pending` | The workflow/task has been initiated and is pending execution |
+| `running` | The workflow/task is currently in progress |
+| `waiting` | Execution is temporarily paused, awaiting inbound events or a specified time interval |
+| `suspended` | Execution has been manually paused by a user and will remain halted until explicitly resumed |
+| `cancelled` | Execution has been terminated before completion |
+| `faulted` | Execution has encountered an error |
+| `completed` | Execution ran to completion |
+
+<Warning>
+If a task encounters an uncaught error, it transitions to the `faulted` phase and halts workflow execution.
+</Warning>
+
+## Task Flow
+
+A workflow begins with the first task defined. Once a task executes, different outcomes are possible:
+
+### Flow Outcomes
+
+1. **Continue**: The task ran to completion, and the next task should execute
+   - Next task is implicitly the next in declaration order
+   - Or explicitly defined by the `then` property
+   - If the executed task is the last task, the workflow ends gracefully
+
+2. **Fault**: The task raised an uncaught error
+   - Workflow execution halts abruptly
+   - Workflow transitions to `faulted` status phase
+
+3. **End**: The task explicitly and gracefully ends the workflow's execution
+
+<Note>
+Flow directives may only redirect to tasks declared within their own scope—they cannot target tasks at a different depth.
+</Note>
+
+## Data Flow
+
+Data flow management ensures that the right data is passed between tasks and to the workflow itself. The DSL provides multiple transformation stages:
+
+### Data Flow Stages
+
+<Steps>
+  <Step title="Validate Workflow Input">
+    Input data is validated against the `input.schema` property before the workflow starts. Execution only proceeds if the input is valid.
+  </Step>
+  
+  <Step title="Transform Workflow Input">
+    The `input.from` expression transforms input data to ensure only relevant data in the expected format is passed into the workflow context.
+  </Step>
+  
+  <Step title="Validate Task Input">
+    Before a task executes, its raw input is validated against the task's `input.schema` property.
+  </Step>
+  
+  <Step title="Transform Task Input">
+    The task's `input.from` expression transforms input to match the specific requirements of that task.
+  </Step>
+  
+  <Step title="Transform Task Output">
+    After task completion, the `output.as` expression transforms output before passing it to the next task.
+  </Step>
+  
+  <Step title="Validate Task Output">
+    Transformed task output is validated against the `output.schema` property.
+  </Step>
+  
+  <Step title="Update Workflow Context">
+    The `export.as` expression updates the workflow context with data from the task.
+  </Step>
+  
+  <Step title="Transform Workflow Output">
+    The workflow's `output.as` expression transforms the final output before returning it.
+  </Step>
+</Steps>
+
+### Data Flow Example
+
+```yaml
+input:
+  from: ${ { userId: .id, userName: .name } }
+
+do:
+  - fetchUser:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/users/${ .userId }
+      output:
+        as: ${ .response.body }
+
+output:
+  as: |
+    {
+      user: .fetchUser,
+      processedAt: now
+    }
+```
+
+## Runtime Expressions
+
+Runtime expressions enable dynamic data manipulation within workflows. By default, expressions use the `jq` language and must be enclosed in `${ }` when in strict evaluation mode.
+
+### Available Runtime Arguments
+
+- `$input`: The current task's input data
+- `$context`: The workflow's context data
+- `$workflow`: Workflow metadata and status information
+- `$task`: Current task metadata and status information
+
+### Expression Example
+
+```yaml
+do:
+  - processOrder:
+      set:
+        totalPrice: ${ .items | map(.price) | add }
+        itemCount: ${ .items | length }
+        orderStatus: ${ if .totalPrice > 100 then "premium" else "standard" end }
+```
+
+## Events
+
+Serverless Workflow supports event-driven architectures with seamless event integration:
+
+### Event Support
+
+- **CloudEvents**: Native support for the CloudEvents specification
+- **Event Consumption**: Use the `listen` task to consume events
+- **Event Publication**: Use the `emit` task to publish events
+- **Event Filtering**: Apply filters to consume only relevant events
+
+### Event-Driven Workflow Example
+
+```yaml
+schedule:
+  on:
+    with:
+      - type: com.example.order.created
+        source: /orders/service
+
+do:
+  - processOrder:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/orders/process
+        body: ${ $workflow.input[0] }
+```
+
+<Info>
+In event-driven scheduled workflows, the input is structured as an array containing the events that trigger execution. Access events using `$workflow.input[index]`.
+</Info>
+
+## Workflow Scheduling
+
+Workflows can be scheduled using multiple strategies:
+
+<CardGroup cols={2}>
+  <Card title="CRON Expressions" icon="calendar">
+    Schedule execution at specific times or intervals:
+    
+    ```yaml
+    schedule:
+      cron: '0 0 * * *'  # Daily at midnight
+    ```
+  </Card>
+  
+  <Card title="Duration Intervals" icon="clock">
+    Execute at regular intervals:
+    
+    ```yaml
+    schedule:
+      every: PT1H  # Every hour
+    ```
+  </Card>
+  
+  <Card title="Event-Driven" icon="bolt">
+    Trigger on specific events:
+    
+    ```yaml
+    schedule:
+      on:
+        with:
+          - type: com.example.event
+    ```
+  </Card>
+  
+  <Card title="Delayed Restart" icon="rotate-right">
+    Restart after completion with delay:
+    
+    ```yaml
+    schedule:
+      after: PT5M  # 5 minutes after completion
+    ```
+  </Card>
+</CardGroup>
+
+## Fault Tolerance
+
+Serverless Workflow provides multiple mechanisms for handling errors and ensuring reliability:
+
+### Error Handling with Try
+
+```yaml
+do:
+  - callService:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint: https://api.example.com/data
+      catch:
+        errors:
+          communication:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        as: error
+        do:
+          - handleError:
+              set:
+                errorHandled: true
+                errorMessage: ${ .error.message }
+```
+
+### Retry Policies
+
+```yaml
+use:
+  retries:
+    exponentialBackoff:
+      retry:
+        when:
+          - type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        limit:
+          attempt:
+            count: 5
+        backoff:
+          exponential:
+            initial: PT2S
+            multiplier: 2
+
+do:
+  - callServiceWithRetry:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/data
+      retry: exponentialBackoff
+```
+
+## Timeouts
+
+Define timeouts to manage execution duration effectively:
+
+```yaml
+timeout:
+  after: PT30S
+
+do:
+  - longRunningTask:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/slow-operation
+      timeout:
+        after: PT10S
+```
+
+<Warning>
+If a task or workflow exceeds its timeout, execution is terminated and the workflow transitions to a `faulted` state.
+</Warning>
+
+## Reusable Components
+
+The `use` section allows you to define reusable components:
+
+```yaml
+use:
+  authentications:
+    myOAuth:
+      oauth2:
+        authority: https://auth.example.com
+        grant: client_credentials
+        client:
+          id: my-client
+          secret: my-secret
+  
+  functions:
+    fetchUser:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/users/{userId}
+        authenticate: myOAuth
+  
+  retries:
+    standardRetry:
+      retry:
+        limit:
+          attempt:
+            count: 3
+        backoff:
+          constant:
+            interval: PT5S
+
+do:
+  - getUser:
+      run: fetchUser
+      with:
+        userId: '123'
+      retry: standardRetry
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="DSL Reference" icon="book">
+    Complete reference for all workflow definitions and properties
+  </Card>
+  
+  <Card title="Task Types" icon="list-check">
+    Detailed documentation for each task type
+  </Card>
+  
+  <Card title="Examples" icon="code">
+    Practical examples demonstrating specific features
+  </Card>
+  
+  <Card title="Authentication" icon="lock">
+    Learn about authentication mechanisms for secure service calls
+  </Card>
+</CardGroup>

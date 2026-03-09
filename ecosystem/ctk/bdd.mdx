@@ -1,0 +1,408 @@
+---
+title: Behavior-Driven Development (BDD)
+description: Use the CTK for collaborative workflow development
+---
+
+Behavior-Driven Development (BDD) is an agile software development process that encourages collaboration among developers, testers, and business stakeholders. BDD focuses on defining the behavior of a system through examples in a shared language, which in this case is Gherkin.
+
+By using the CTK for BDD, teams can effectively collaborate on workflow development, ensuring that everyone has a shared understanding of the system's expected behavior.
+
+## Why Use BDD?
+
+BDD provides several key benefits:
+
+### Shared Understanding
+
+Gherkin scenarios create a common language that both technical and non-technical team members can understand, reducing miscommunication.
+
+### Living Documentation
+
+Test scenarios serve as up-to-date documentation that describes how the system actually works.
+
+### Early Bug Detection
+
+Defining behavior upfront helps identify issues before code is written.
+
+### Testable Requirements
+
+Requirements are expressed as executable specifications that can be automatically validated.
+
+## BDD Workflow
+
+The typical BDD workflow for Serverless Workflows:
+
+### 1. Define Behavior
+
+Collaborate with stakeholders to write Gherkin scenarios that describe the expected behavior:
+
+```gherkin
+Feature: Order Processing Workflow
+  As an e-commerce system
+  I want to process customer orders
+  So that products can be shipped and customers charged
+
+  Scenario: Successful order processing
+    Given a workflow for processing orders
+    And an order with items in stock
+    When the workflow is executed
+    Then the payment should be processed
+    And the inventory should be updated
+    And the shipping should be scheduled
+    And the customer should receive confirmation
+```
+
+### 2. Implement Steps
+
+Developers implement the step definitions:
+
+```typescript
+import { Given, When, Then } from '@cucumber/cucumber';
+
+Given('a workflow for processing orders', function () {
+  this.workflow = `
+    document:
+      dsl: 1.0.0
+      namespace: ecommerce
+      name: order-processing
+      version: 1.0.0
+    do:
+      - processPayment:
+          call: http
+          with:
+            method: post
+            uri: https://payment.example.com/charge
+      - updateInventory:
+          call: http
+          with:
+            method: put
+            uri: https://inventory.example.com/update
+      # ... more tasks
+  `;
+});
+
+Given('an order with items in stock', function () {
+  this.input = {
+    orderId: '12345',
+    items: [{ sku: 'ABC123', quantity: 2 }],
+    customer: { id: 'cust-001' }
+  };
+});
+
+When('the workflow is executed', async function () {
+  this.result = await this.runtime.execute(this.workflow, this.input);
+});
+
+Then('the payment should be processed', function () {
+  expect(this.result.tasks.processPayment.status).toBe('completed');
+});
+```
+
+### 3. Run and Validate
+
+Execute the scenarios and validate that the system behaves as expected:
+
+```bash
+npm test
+
+# Output:
+# Feature: Order Processing Workflow
+#   Scenario: Successful order processing
+#     ✓ Given a workflow for processing orders
+#     ✓ And an order with items in stock
+#     ✓ When the workflow is executed
+#     ✓ Then the payment should be processed
+#     ✓ And the inventory should be updated
+#     ✓ And the shipping should be scheduled
+#     ✓ And the customer should receive confirmation
+```
+
+### 4. Refine and Iterate
+
+Continuously refine scenarios based on feedback and evolving requirements.
+
+## Writing Effective Scenarios
+
+### Feature File Structure
+
+Each feature file should follow this structure:
+
+```gherkin
+Feature: <Feature Name>
+  As a <role>
+  I want <feature>
+  So that <benefit>
+
+  Scenario: <Scenario Name>
+    Given <preconditions>
+    When <action>
+    Then <expected outcome>
+    And <additional outcomes>
+```
+
+### Best Practices
+
+#### Be Declarative, Not Imperative
+
+<Tabs>
+  <Tab title="Good">
+    ```gherkin
+    Given a customer has placed an order
+    When the order is processed
+    Then the customer receives confirmation
+    ```
+  </Tab>
+  
+  <Tab title="Avoid">
+    ```gherkin
+    Given I navigate to the order page
+    When I click the "Submit" button
+    And I wait for the page to load
+    Then I should see "Order Confirmed"
+    ```
+  </Tab>
+</Tabs>
+
+#### Focus on Business Value
+
+Describe **what** the system should do, not **how** it does it:
+
+```gherkin
+Scenario: Handle insufficient inventory
+  Given an order for items with insufficient stock
+  When the workflow is executed
+  Then the customer should be notified of unavailability
+  And the order should be cancelled
+  And no payment should be processed
+```
+
+#### Use Background for Common Setup
+
+```gherkin
+Feature: Payment Processing
+
+  Background:
+    Given a workflow for processing payments
+    And a valid payment gateway is configured
+
+  Scenario: Successful payment
+    Given a customer with valid credit card
+    When the payment is processed
+    Then the payment should succeed
+
+  Scenario: Failed payment
+    Given a customer with invalid credit card
+    When the payment is processed
+    Then the payment should fail
+    And the customer should be notified
+```
+
+#### Use Scenario Outlines for Multiple Cases
+
+```gherkin
+Scenario Outline: Validate order amounts
+  Given an order with total <amount>
+  When the workflow validates the order
+  Then the validation should <result>
+
+  Examples:
+    | amount | result |
+    | 0      | fail   |
+    | 10     | pass   |
+    | 1000   | pass   |
+    | -5     | fail   |
+```
+
+## Available CTK Steps
+
+The CTK provides predefined steps for common workflow testing scenarios.
+
+### Arrange Steps
+
+#### Define Workflow
+
+```gherkin
+Given a workflow with definition:
+"""
+yaml
+<WORKFLOW_DEFINITION>
+"""
+```
+
+#### Set Workflow Input
+
+```gherkin
+And given the workflow input is:
+"""
+yaml
+<INPUT_DATA>
+"""
+```
+
+### Act Steps
+
+#### Execute Workflow
+
+```gherkin
+When the workflow is executed
+```
+
+### Assert Steps
+
+#### Workflow Status
+
+```gherkin
+Then the workflow should complete
+Then the workflow should cancel
+Then the workflow should fault
+```
+
+#### Workflow Output
+
+```gherkin
+Then the workflow should complete with output:
+"""
+yaml
+<EXPECTED_OUTPUT>
+"""
+
+And the workflow output should have properties 'result.status', 'result.id'
+
+And the workflow output should have a 'result.status' property with value:
+"""
+yaml
+success
+"""
+
+And the workflow output should have a 'items' property containing 5 items
+```
+
+#### Task Execution Order
+
+```gherkin
+And task1 should run first
+And task2 should run last
+And task1 should run before task2
+And task2 should run after task1
+```
+
+#### Task Status
+
+```gherkin
+And taskName should complete
+And taskName should cancel
+And taskName should fault
+
+And taskName should complete with output:
+"""
+yaml
+<EXPECTED_OUTPUT>
+"""
+```
+
+## Example: Complete Feature
+
+```gherkin
+Feature: Error Handling with Retries
+  As a workflow developer
+  I want workflows to retry failed tasks
+  So that transient errors don't cause workflow failure
+
+  Scenario: Retry on HTTP timeout
+    Given a workflow with definition:
+    """
+    document:
+      dsl: 1.0.0
+      namespace: examples
+      name: retry-example
+      version: 1.0.0
+    do:
+      - callService:
+          call: http
+          with:
+            method: get
+            uri: https://api.example.com/data
+          timeout:
+            after: PT30S
+          retry:
+            when:
+              status:
+                timeout: true
+            limit:
+              attempt:
+                count: 3
+            backoff:
+              constant:
+                duration: PT5S
+    """
+    When the workflow is executed
+    Then the workflow should complete
+    And callService should complete
+
+  Scenario: Exhaust retries and fault
+    Given a workflow with definition:
+    """
+    document:
+      dsl: 1.0.0
+      namespace: examples
+      name: retry-exhaust
+      version: 1.0.0
+    do:
+      - callService:
+          call: http
+          with:
+            method: get
+            uri: https://api.example.com/failing-endpoint
+          retry:
+            limit:
+              attempt:
+                count: 2
+    """
+    When the workflow is executed
+    Then the workflow should fault
+    And callService should fault
+```
+
+## Collaboration Tips
+
+### Involve Stakeholders Early
+
+Include business stakeholders, testers, and developers in scenario writing sessions.
+
+### Use Three Amigos Sessions
+
+Bring together:
+- **Business**: Defines requirements
+- **Development**: Identifies technical constraints
+- **Testing**: Considers edge cases
+
+### Iterate on Scenarios
+
+Scenarios evolve as understanding deepens. Continuously refine them.
+
+### Keep Scenarios Focused
+
+Each scenario should test one specific behavior.
+
+### Review Regularly
+
+Regularly review scenarios to ensure they remain relevant and accurate.
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="CTK Overview" icon="vial" href="/ecosystem/ctk/overview">
+    Learn about the Conformance Test Kit
+  </Card>
+  
+  <Card title="Conformance Testing" icon="check-circle" href="/ecosystem/ctk/conformance-testing">
+    Validate implementations against the spec
+  </Card>
+  
+  <Card title="CTK Repository" icon="github" href="https://github.com/serverlessworkflow/specification/tree/main/ctk">
+    Browse existing test scenarios
+  </Card>
+  
+  <Card title="Community Slack" icon="slack" href="https://slack.cncf.io/">
+    Discuss BDD practices on #serverless-workflow
+  </Card>
+</CardGroup>

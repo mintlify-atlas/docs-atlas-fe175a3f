@@ -1,0 +1,67 @@
+---
+title: Do Task
+description: Execute multiple subtasks in sequence
+---
+
+Serves as a fundamental building block within workflows, enabling the sequential execution of multiple subtasks. By defining a series of subtasks to perform in sequence, the Do task facilitates the efficient execution of complex operations, ensuring that each subtask is completed before the next one begins.
+
+## Properties
+
+<ParamField path="do" type="map[string, task]">
+  The tasks to perform sequentially.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: do-example
+  version: '0.1.0'
+use:
+  authentications:
+    fake-booking-agency-oauth2:
+      oauth2:
+        authority: https://fake-booking-agency.com
+        grant: client_credentials
+        client:
+          id: serverless-workflow-runtime
+          secret: secret0123456789
+do:
+  - bookHotel:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://fake-booking-agency.com/hotels/book
+          authentication:
+            use: fake-booking-agency-oauth2
+        body:
+          name: Four Seasons
+          city: Antwerp
+          country: Belgium
+  - bookFlight:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://fake-booking-agency.com/flights/book
+          authentication:
+            use: fake-booking-agency-oauth2
+        body:
+          departure:
+            date: '01/01/26'
+            time: '07:25:00'
+            from:
+              airport: BRU
+              city: Zaventem
+              country: Belgium
+          arrival:
+            date: '01/01/26'
+            time: '11:12:00'
+            to:
+              airport: LIS
+              city: Lisbon
+              country: Portugal
+```

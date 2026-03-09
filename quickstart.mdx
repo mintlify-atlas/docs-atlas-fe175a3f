@@ -1,80 +1,281 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Create your first Serverless Workflow in minutes with this step-by-step tutorial
 ---
 
-## Get started in three steps
+## Getting Started
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first Serverless Workflow. You'll learn how to define a simple workflow that calls an HTTP service, processes data, and produces output.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Before you begin, ensure you have a Serverless Workflow runtime installed, or use one of the available SDKs to validate and test your workflow.
 </Note>
+
+## Prerequisites
+
+- Basic understanding of YAML or JSON
+- A text editor or IDE
+- A Serverless Workflow runtime (optional for validation)
+
+## Create Your First Workflow
+
+<Steps>
+  <Step title="Define the Workflow Document">
+    Every workflow begins with a document section that provides metadata about your workflow:
+
+    ```yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: my-first-workflow
+      version: '1.0.0'
+      title: My First Workflow
+      summary: A simple workflow that demonstrates basic concepts
+    ```
+
+    The document section includes:
+    - `dsl`: The version of the Serverless Workflow DSL
+    - `namespace`: A logical grouping for your workflows
+    - `name`: A unique identifier for your workflow
+    - `version`: Semantic version of your workflow
+    - `title` and `summary`: Human-readable documentation
+  </Step>
+
+  <Step title="Define Input and Output">
+    Configure how your workflow receives and returns data:
+
+    ```yaml
+    input:
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+        required:
+          - name
+
+    output:
+      schema:
+        type: object
+        properties:
+          greeting:
+            type: string
+    ```
+
+    <Info>
+    Input validation ensures your workflow receives data in the expected format. If validation fails, the workflow will fault with a validation error.
+    </Info>
+  </Step>
+
+  <Step title="Add Your First Task">
+    Tasks are the fundamental computing units of a workflow. Let's add a simple `set` task to create a greeting:
+
+    ```yaml
+    do:
+      - greetUser:
+          set:
+            greeting: Hello, ${ .name }!
+    ```
+
+    This task uses a runtime expression `${ .name }` to access the input data and create a personalized greeting.
+
+    <Note>
+    The Serverless Workflow DSL supports runtime expressions for dynamic data manipulation. By default, expressions use the `jq` language and must be enclosed in `${ }` when in strict mode.
+    </Note>
+  </Step>
+
+  <Step title="Call an External Service">
+    Let's extend the workflow to call an HTTP service. Add a `call` task:
+
+    ```yaml
+    do:
+      - greetUser:
+          set:
+            greeting: Hello, ${ .name }!
+      
+      - fetchData:
+          call: http
+          with:
+            method: get
+            endpoint: https://api.example.com/data
+    ```
+
+    The `call` task invokes external services using protocols like HTTP, gRPC, OpenAPI, and more.
+  </Step>
+
+  <Step title="Transform Output">
+    Use the output section to shape your workflow's final result:
+
+    ```yaml
+    do:
+      - greetUser:
+          set:
+            greeting: Hello, ${ .name }!
+      
+      - fetchData:
+          call: http
+          with:
+            method: get
+            endpoint: https://api.example.com/data
+
+    output:
+      as: |
+        {
+          greeting: .greeting,
+          data: .fetchData.response
+        }
+    ```
+
+    The `output.as` expression transforms the workflow's data before returning it to the caller.
+  </Step>
+
+  <Step title="Complete Workflow Example">
+    Here's the complete workflow:
+
+    ```yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: my-first-workflow
+      version: '1.0.0'
+      title: My First Workflow
+      summary: A simple workflow that demonstrates basic concepts
+
+    input:
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+        required:
+          - name
+
+    do:
+      - greetUser:
+          set:
+            greeting: Hello, ${ .name }!
+      
+      - fetchData:
+          call: http
+          with:
+            method: get
+            endpoint: https://api.example.com/data
+
+    output:
+      as: |
+        {
+          greeting: .greeting,
+          data: .fetchData.response
+        }
+      schema:
+        type: object
+        properties:
+          greeting:
+            type: string
+          data:
+            type: object
+    ```
+  </Step>
+</Steps>
+
+## Understanding Task Flow
+
+In Serverless Workflow, tasks execute in sequence by default:
+
+1. The workflow begins with the first task defined
+2. Once a task completes, the next task executes
+3. Tasks can explicitly control flow using the `then` property
+4. The workflow ends when the last task completes or when a task explicitly ends execution
+
+<Warning>
+If a task raises an uncaught error, the workflow execution halts abruptly and transitions to a `faulted` status phase.
+</Warning>
+
+## Task Types Available
+
+The Serverless Workflow DSL provides several built-in task types:
+
+<CardGroup cols={2}>
+  <Card title="Call" icon="phone">
+    Invoke external services and functions via HTTP, gRPC, OpenAPI, and more
+  </Card>
+  
+  <Card title="Set" icon="pen-to-square">
+    Dynamically set or modify workflow data during execution
+  </Card>
+  
+  <Card title="For" icon="repeat">
+    Iterate over collections and perform tasks for each item
+  </Card>
+  
+  <Card title="Switch" icon="code-branch">
+    Execute different paths based on conditions
+  </Card>
+  
+  <Card title="Wait" icon="clock">
+    Pause execution for a specified duration
+  </Card>
+  
+  <Card title="Listen" icon="ear-listen">
+    Wait for and react to specific events
+  </Card>
+  
+  <Card title="Emit" icon="signal-stream">
+    Publish events to external systems
+  </Card>
+  
+  <Card title="Run" icon="play">
+    Execute containers, scripts, shell commands, or nested workflows
+  </Card>
+</CardGroup>
+
+## Adding Error Handling
+
+Make your workflow fault-tolerant by adding error handling:
+
+```yaml
+do:
+  - callExternalService:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint: https://api.example.com/data
+      catch:
+        errors:
+          communication:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        as: error
+        do:
+          - logError:
+              set:
+                errorMessage: ${ .error.message }
+```
+
+The `try` task attempts to execute a task and handles errors gracefully, allowing the workflow to continue without interruption.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book" href="/concepts">
+    Deep dive into workflows, tasks, events, and data flow
+  </Card>
+  
+  <Card title="DSL Reference" icon="file-lines">
+    Complete reference for all workflow definitions and properties
+  </Card>
+  
+  <Card title="Examples" icon="code">
+    Explore practical examples demonstrating specific features
+  </Card>
+  
+  <Card title="Task Types" icon="list-check">
+    Learn about all available task types and their configurations
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Community Slack Channel](https://slack.cncf.io/) - #serverless-workflow
+- [GitHub Repository](https://github.com/serverlessworkflow/specification)
+- [CNCF Serverless Working Group](https://github.com/cncf/wg-serverless)

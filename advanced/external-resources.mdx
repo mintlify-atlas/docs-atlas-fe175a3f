@@ -1,0 +1,356 @@
+---
+title: 'External Resources'
+description: 'Define and securely access external assets and services in your workflows'
+---
+
+## Overview
+
+External resources in Serverless Workflow allow you to define and access external assets or services required for workflow execution. These resources can include:
+
+- APIs
+- Databases
+- Files
+- Configuration services
+- Third-party services
+- Any other external entities needed by the workflow
+
+## Benefits
+
+By defining external resources within the workflow, you:
+
+- **Centralize resource management** - All external dependencies are defined in one place
+- **Streamline access** - Simplified and consistent access patterns across tasks
+- **Enhance security** - Built-in authentication and authorization support
+- **Improve maintainability** - Easy to update resource locations or credentials
+- **Promote modularity** - Clear separation between workflow logic and external dependencies
+
+## Defining External Resources
+
+Each external resource is identified by:
+- A **unique name** for reference within the workflow
+- A **URI** specifying its location
+- Optional **authentication** policy for secure access
+
+### Basic Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: example
+  name: external-resources-demo
+  version: '0.1.0'
+use:
+  resources:
+    userApi:
+      endpoint:
+        uri: https://api.example.com/users
+    productDatabase:
+      endpoint:
+        uri: postgres://db.example.com:5432/products
+do:
+  - fetchUser:
+      call: http
+      with:
+        method: get
+        endpoint:
+          from: userApi
+```
+
+## Authentication
+
+External resources can specify authentication policies to ensure secure access. The Serverless Workflow DSL supports several standard authentication mechanisms:
+
+### Basic Authentication
+
+Utilizes a username-password pair for authentication:
+
+```yaml
+use:
+  resources:
+    legacyApi:
+      endpoint:
+        uri: https://legacy.example.com/api
+        authentication:
+          basic:
+            username: admin
+            password: ${ $secrets.legacyApiPassword }
+```
+
+### Bearer Authentication
+
+Uses a bearer token for authentication:
+
+```yaml
+use:
+  resources:
+    modernApi:
+      endpoint:
+        uri: https://api.example.com/v2
+        authentication:
+          bearer: ${ $secrets.apiToken }
+```
+
+### OAuth2 Authentication
+
+Implements OAuth2 authorization framework for secure access:
+
+```yaml
+use:
+  resources:
+    secureApi:
+      endpoint:
+        uri: https://secure.example.com/api
+        authentication:
+          oauth2:
+            authority: http://keycloak/realms/fake-authority/.well-known/openid-configuration
+            grant: client-credentials
+            client:
+              id: workflow-runtime
+              secret: ${ $secrets.oauthClientSecret }
+            scopes: [ api ]
+            audiences: [ runtime ]
+```
+
+### Reusable Authentication Policies
+
+You can define authentication policies separately and reference them by name:
+
+```yaml
+use:
+  authentications:
+    apiAuth:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: my-app
+          secret: ${ $secrets.clientSecret }
+        scopes: [ read, write ]
+  resources:
+    apiResource:
+      endpoint:
+        uri: https://api.example.com
+        authentication: apiAuth
+```
+
+## Using External Resources in Tasks
+
+### HTTP Calls
+
+```yaml
+do:
+  - getUserProfile:
+      call: http
+      with:
+        method: get
+        endpoint:
+          from: userApi
+          uri: /profile/123
+```
+
+### OpenAPI Calls
+
+```yaml
+use:
+  resources:
+    petStore:
+      endpoint:
+        uri: https://petstore.swagger.io/v2/swagger.json
+do:
+  - getPet:
+      call: openapi
+      with:
+        document:
+          from: petStore
+        operationId: getPetById
+        parameters:
+          petId: 456
+```
+
+### gRPC Calls
+
+```yaml
+use:
+  resources:
+    grpcService:
+      endpoint:
+        uri: grpc://service.example.com:9090
+        authentication:
+          bearer: ${ $secrets.grpcToken }
+do:
+  - callService:
+      call: grpc
+      with:
+        proto:
+          uri: https://example.com/protos/service.proto
+        service:
+          from: grpcService
+        method: ProcessData
+```
+
+## Advanced Examples
+
+### Multiple Environments
+
+Use runtime expressions to select resources based on environment:
+
+```yaml
+use:
+  resources:
+    apiDev:
+      endpoint:
+        uri: https://dev-api.example.com
+    apiProd:
+      endpoint:
+        uri: https://api.example.com
+        authentication:
+          oauth2:
+            authority: https://auth.example.com
+            grant: client-credentials
+            client:
+              id: prod-client
+              secret: ${ $secrets.prodClientSecret }
+do:
+  - callApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          from: ${ $runtime.metadata.environment == "production" ? "apiProd" : "apiDev" }
+          uri: /data
+```
+
+### Database Resources
+
+```yaml
+use:
+  resources:
+    analyticsDb:
+      endpoint:
+        uri: postgresql://analytics.example.com:5432/warehouse
+        authentication:
+          basic:
+            username: analytics_user
+            password: ${ $secrets.dbPassword }
+do:
+  - queryData:
+      run:
+        container:
+          image: postgres:15-alpine
+          environment:
+            PGHOST: analytics.example.com
+            PGPORT: "5432"
+            PGDATABASE: warehouse
+            PGUSER: analytics_user
+            PGPASSWORD: ${ $secrets.dbPassword }
+          command: |
+            psql -c "SELECT * FROM sales WHERE date > '2024-01-01'"
+```
+
+### File Resources
+
+```yaml
+use:
+  resources:
+    configFile:
+      endpoint:
+        uri: https://config.example.com/app-config.json
+        authentication:
+          bearer: ${ $secrets.configToken }
+do:
+  - loadConfig:
+      call: http
+      with:
+        method: get
+        endpoint:
+          from: configFile
+  - processConfig:
+      set:
+        appSettings: ${ $input | fromjson }
+```
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Use Secrets for Credentials">
+    Never hardcode credentials in your workflow definitions. Always use the `$secrets` runtime expression to reference sensitive information:
+    
+    ```yaml
+    authentication:
+      basic:
+        username: admin
+        password: ${ $secrets.apiPassword }
+    ```
+  </Step>
+
+  <Step title="Limit Secret Exposure">
+    The `$secrets` runtime expression is only available in `input.from` expressions to prevent accidental exposure. Plan your authentication accordingly.
+  </Step>
+
+  <Step title="Use OAuth2 When Possible">
+    OAuth2 provides better security than basic authentication, especially for production systems. It supports token expiration, refresh, and granular access control.
+  </Step>
+
+  <Step title="Validate Resource Responses">
+    Use output schemas to validate responses from external resources, ensuring data integrity and catching issues early.
+  </Step>
+
+  <Step title="Handle Authentication Failures">
+    Implement proper error handling for authentication failures using try/catch blocks:
+    
+    ```yaml
+    do:
+      - callSecureApi:
+          try:
+            call: http
+            with:
+              method: get
+              endpoint:
+                from: secureResource
+          catch:
+            errors:
+              with:
+                status: 401
+            emit:
+              event:
+                type: io.example.auth.failed
+    ```
+  </Step>
+</Steps>
+
+## Frequently Asked Questions
+
+<Accordion title="What's the difference between external resources and catalogs?">
+  External resources are specific endpoints or services that your workflow needs to access (APIs, databases, files). Catalogs are collections of reusable functions that can be shared across workflows. External resources are about *where* to find things, while catalogs are about *what* reusable components are available.
+</Accordion>
+
+<Accordion title="Can I use the same resource with different authentication in different tasks?">
+  Yes! You can override the authentication at the task level by specifying a different authentication policy in the call configuration.
+</Accordion>
+
+<Accordion title="How do I handle resources that require dynamic URLs?">
+  You can use runtime expressions in the URI property or construct the full URI in your task:
+  
+  ```yaml
+  call: http
+  with:
+    method: get
+    endpoint:
+      uri: ${ "https://api.example.com/users/" + .userId }
+  ```
+</Accordion>
+
+<Accordion title="Can external resources be used with custom functions?">
+  Yes! Custom functions can reference external resources defined in the workflow. The resource definitions are available to all tasks, including those within custom functions.
+</Accordion>
+
+<Accordion title="What happens if an external resource is unavailable?">
+  If a resource is unreachable or returns an error, the runtime will raise a communication error. You can handle these errors using try/catch blocks and implement retry strategies as needed.
+</Accordion>
+
+## Related Resources
+
+- [Authentication Reference](/reference/authentication)
+- [Catalogs](/advanced/catalogs)
+- [Interoperability](/advanced/interoperability)
+- [Runtime Expressions](/core-concepts/runtime-expressions)

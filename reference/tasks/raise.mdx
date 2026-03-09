@@ -1,0 +1,64 @@
+---
+title: Raise Task
+description: Intentionally trigger and propagate errors
+---
+
+Intentionally triggers and propagates errors. By employing the Raise task, workflows can deliberately generate error conditions, allowing for explicit error handling and fault management strategies to be implemented.
+
+## Properties
+
+<ParamField path="raise.error" type="string | error" required>
+  Defines the error to raise. If a string, must be the name of an error defined in the workflow's reusable components.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: raise-example
+  version: '0.1.0'
+do:
+  - processTicket:
+      switch:
+        - highPriority:
+            when: .ticket.priority == "high"
+            then: escalateToManager
+        - mediumPriority:
+            when: .ticket.priority == "medium"
+            then: assignToSpecialist
+        - lowPriority:
+            when: .ticket.priority == "low"
+            then: resolveTicket
+        - default:
+            then: raiseUndefinedPriorityError
+  - raiseUndefinedPriorityError:
+      raise:
+        error:
+          type: https://fake.com/errors/tickets/undefined-priority
+          status: 400
+          instance: /raiseUndefinedPriorityError
+          title: Undefined Priority
+  - escalateToManager:
+      call: http
+      with:
+        method: post
+        endpoint: https://fake-ticketing-system.com/tickets/escalate
+        body:
+          ticketId: ${ .ticket.id }
+  - assignToSpecialist:
+      call: http
+      with:
+        method: post
+        endpoint: https://fake-ticketing-system.com/tickets/assign
+        body:
+          ticketId: ${ .ticket.id }
+  - resolveTicket:
+      call: http
+      with:
+        method: post
+        endpoint: https://fake-ticketing-system.com/tickets/resolve
+        body:
+          ticketId: ${ .ticket.id }
+```

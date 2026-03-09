@@ -1,0 +1,821 @@
+---
+title: Fault Tolerance
+description: Error handling, try-catch blocks, retry policies, and resilience patterns in Serverless Workflow
+---
+
+## Overview
+
+Serverless Workflow is designed with resilience in mind, acknowledging that errors are an inevitable part of any system. The DSL provides robust mechanisms to identify, describe, and handle errors effectively, ensuring the workflow can recover gracefully from failures.
+
+<Info>
+  The fault tolerance features in Serverless Workflow enhance its robustness and reliability, making it capable of handling a wide range of failure scenarios gracefully and effectively.
+</Info>
+
+## Errors
+
+Errors in Serverless Workflow are described using the [Problem Details RFC (RFC 7807)](https://datatracker.ietf.org/doc/html/rfc7807). This specification helps to standardize the way errors are communicated, using the `instance` property as a JSON Pointer to identify the specific component of the workflow that has raised the error.
+
+### Error Structure
+
+An error follows this structure:
+
+```yaml
+type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+title: Service Unavailable
+status: 503
+detail: The service is currently unavailable. Please try again later.
+instance: /do/getPetById
+```
+
+<ParamField path="type" type="string" required>
+  A URI reference that identifies the error type
+</ParamField>
+
+<ParamField path="title" type="string">
+  A short, human-readable summary of the error type
+</ParamField>
+
+<ParamField path="status" type="integer">
+  The HTTP status code for this occurrence of the error
+</ParamField>
+
+<ParamField path="detail" type="string">
+  A human-readable explanation specific to this occurrence of the error
+</ParamField>
+
+<ParamField path="instance" type="string">
+  A JSON Pointer to the workflow component that raised the error
+</ParamField>
+
+### Standard Error Types
+
+The Serverless Workflow specification defines several standard error types to describe commonly known errors:
+
+| Error Type | Status | Description |
+|:-----------|:------:|:------------|
+| `https://serverlessworkflow.io/spec/1.0.0/errors/configuration` | 500 | Configuration error |
+| `https://serverlessworkflow.io/spec/1.0.0/errors/validation` | 400 | Validation error |
+| `https://serverlessworkflow.io/spec/1.0.0/errors/expression` | 400 | Expression evaluation error |
+| `https://serverlessworkflow.io/spec/1.0.0/errors/communication` | 500 | Communication error |
+| `https://serverlessworkflow.io/spec/1.0.0/errors/timeout` | 408 | Timeout error |
+| `https://serverlessworkflow.io/spec/1.0.0/errors/authorization` | 403 | Authorization error |
+
+<Note>
+  Using these standard error types ensures that workflows behave consistently across different runtimes and allows authors to rely on predictable error handling and recovery processes.
+</Note>
+
+### Defining Custom Errors
+
+You can define reusable custom errors in the `use` section:
+
+```yaml
+use:
+  errors:
+    businessRuleViolation:
+      type: https://example.com/errors/business-rule
+      status: 422
+      title: Business Rule Violation
+    
+    insufficientFunds:
+      type: https://example.com/errors/insufficient-funds
+      status: 402
+      title: Insufficient Funds
+    
+    invalidOperation:
+      type: https://example.com/errors/invalid-operation
+      status: 400
+      title: Invalid Operation
+```
+
+## Try-Catch Pattern
+
+The `try` task enables you to attempt executing a task and handle errors gracefully:
+
+### Basic Try-Catch
+
+```yaml
+tryExample:
+  try:
+    call: http
+    with:
+      method: get
+      endpoint:
+        uri: https://api.example.com/data
+  catch:
+    errors:
+      with:
+        status: 503
+    as: serviceError
+```
+
+<ParamField path="try" type="object" required>
+  The task to attempt
+</ParamField>
+
+<ParamField path="catch" type="object" required>
+  Error handling configuration
+</ParamField>
+
+<ParamField path="catch.errors" type="object">
+  Error filter to specify which errors to catch
+</ParamField>
+
+<ParamField path="catch.as" type="string">
+  Variable name to store the caught error
+</ParamField>
+
+### Catching Specific Errors
+
+```yaml
+processPayment:
+  try:
+    call: paymentService
+    with:
+      amount: ${ .orderTotal }
+      customerId: ${ .customerId }
+  catch:
+    errors:
+      with:
+        type: https://example.com/errors/insufficient-funds
+    do:
+      - notifyCustomer:
+          call: notificationService
+          with:
+            message: Insufficient funds for payment
+```
+
+### Multiple Error Handlers
+
+```yaml
+processOrder:
+  try:
+    call: orderService
+    with:
+      orderId: ${ .orderId }
+  catch:
+    errors:
+      one:
+        - with:
+            type: https://example.com/errors/validation
+          do:
+            - handleValidationError:
+                call: errorLogger
+                with:
+                  error: Validation failed
+        
+        - with:
+            type: https://example.com/errors/insufficient-inventory
+          do:
+            - handleInventoryError:
+                call: inventoryService
+                with:
+                  action: backorder
+        
+        - with:
+            status: 503
+          retry:
+            delay:
+              seconds: 3
+            limit:
+              attempt:
+                count: 5
+```
+
+### Catch All Errors
+
+```yaml
+riskyOperation:
+  try:
+    call: unreliableService
+    with:
+      data: ${ .inputData }
+  catch:
+    errors: {}
+    as: caughtError
+    do:
+      - logError:
+          call: logger
+          with:
+            error: ${ .caughtError }
+      - useDefault:
+          set:
+            result: default-value
+```
+
+<Info>
+  An empty `errors` object catches all errors, providing a fallback for any failure.
+</Info>
+
+## Retry Policies
+
+Retry policies allow workflows to automatically retry failed operations, which is especially useful for handling transient failures.
+
+### Basic Retry
+
+```yaml
+fetchData:
+  try:
+    call: http
+    with:
+      method: get
+      endpoint:
+        uri: https://api.example.com/data
+  catch:
+    errors:
+      with:
+        status: 503
+    retry:
+      delay:
+        seconds: 3
+      limit:
+        attempt:
+          count: 5
+```
+
+<ParamField path="retry.delay" type="object">
+  Duration to wait before retrying
+</ParamField>
+
+<ParamField path="retry.limit" type="object">
+  Limits on retry attempts
+</ParamField>
+
+### Retry with Exponential Backoff
+
+```yaml
+reliableCall:
+  try:
+    call: http
+    with:
+      method: post
+      endpoint:
+        uri: https://api.example.com/process
+      body: ${ .data }
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+    retry:
+      delay:
+        seconds: 1
+      backoff:
+        exponential:
+          factor: 2
+      limit:
+        attempt:
+          count: 5
+```
+
+<ParamField path="retry.backoff.exponential" type="object">
+  Exponential backoff configuration
+</ParamField>
+
+<ParamField path="retry.backoff.exponential.factor" type="number" default="2">
+  Multiplication factor for each retry delay
+</ParamField>
+
+With exponential backoff and factor 2:
+- Attempt 1: 1 second delay
+- Attempt 2: 2 seconds delay
+- Attempt 3: 4 seconds delay
+- Attempt 4: 8 seconds delay
+- Attempt 5: 16 seconds delay
+
+### Retry with Linear Backoff
+
+```yaml
+steadyRetry:
+  try:
+    call: dataService
+  catch:
+    errors:
+      with:
+        status: 503
+    retry:
+      delay:
+        seconds: 3
+      backoff:
+        linear: {}
+      limit:
+        attempt:
+          count: 5
+```
+
+<ParamField path="retry.backoff.linear" type="object">
+  Linear backoff configuration (delay increases by the same amount each time)
+</ParamField>
+
+With linear backoff:
+- Attempt 1: 3 seconds delay
+- Attempt 2: 6 seconds delay
+- Attempt 3: 9 seconds delay
+- Attempt 4: 12 seconds delay
+- Attempt 5: 15 seconds delay
+
+### Time-Based Retry Limit
+
+```yaml
+timedRetry:
+  try:
+    call: longRunningService
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    retry:
+      delay:
+        seconds: 5
+      limit:
+        duration:
+          minutes: 10
+```
+
+<ParamField path="retry.limit.duration" type="object">
+  Maximum total time to spend retrying
+</ParamField>
+
+### Reusable Retry Policies
+
+Define retry policies once and reuse them across multiple tasks:
+
+```yaml
+use:
+  retries:
+    standardRetry:
+      delay:
+        seconds: 2
+      backoff:
+        exponential:
+          factor: 2
+      limit:
+        attempt:
+          count: 5
+    
+    aggressiveRetry:
+      delay:
+        milliseconds: 500
+      backoff:
+        exponential:
+          factor: 1.5
+      limit:
+        attempt:
+          count: 10
+    
+    patientRetry:
+      delay:
+        seconds: 10
+      backoff:
+        linear: {}
+      limit:
+        duration:
+          minutes: 30
+
+do:
+  - criticalOperation:
+      try:
+        call: criticalService
+      catch:
+        errors:
+          with:
+            status: 503
+        retry: standardRetry
+  
+  - rapidOperation:
+      try:
+        call: fastService
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        retry: aggressiveRetry
+```
+
+## Advanced Error Handling Patterns
+
+### Error Recovery with Fallback
+
+```yaml
+do:
+  - tryPrimaryService:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://primary.example.com/api
+      catch:
+        errors:
+          with:
+            status: 503
+        retry:
+          delay:
+            seconds: 2
+          limit:
+            attempt:
+              count: 3
+        as: primaryError
+  
+  - tryFallbackService:
+      if: ${ .primaryError != null }
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://fallback.example.com/api
+      catch:
+        errors:
+          with:
+            status: 503
+        as: fallbackError
+  
+  - useDefaultData:
+      if: ${ .primaryError != null and .fallbackError != null }
+      set:
+        result:
+          data: default-data
+          source: default
+```
+
+### Circuit Breaker Pattern
+
+```yaml
+do:
+  - checkCircuitState:
+      call: circuitBreakerService
+      with:
+        service: externalApi
+  
+  - callService:
+      if: ${ .checkCircuitState.output.state != "open" }
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://external.example.com/api
+      catch:
+        errors: {}
+        do:
+          - recordFailure:
+              call: circuitBreakerService
+              with:
+                action: recordFailure
+                service: externalApi
+  
+  - useCachedData:
+      if: ${ .checkCircuitState.output.state == "open" }
+      call: cacheService
+      with:
+        key: lastKnownGood
+```
+
+### Saga Pattern with Compensation
+
+```yaml
+do:
+  - reserveInventory:
+      try:
+        call: inventoryService
+        with:
+          action: reserve
+          items: ${ .orderItems }
+      catch:
+        errors: {}
+        then: end
+      export:
+        as: ${ $context + { inventoryReserved: true } }
+  
+  - processPayment:
+      try:
+        call: paymentService
+        with:
+          amount: ${ .orderTotal }
+      catch:
+        errors: {}
+        do:
+          - compensateInventory:
+              call: inventoryService
+              with:
+                action: release
+                items: ${ .orderItems }
+        then: end
+      export:
+        as: ${ $context + { paymentProcessed: true } }
+  
+  - confirmOrder:
+      try:
+        call: orderService
+        with:
+          action: confirm
+      catch:
+        errors: {}
+        do:
+          - compensatePayment:
+              call: paymentService
+              with:
+                action: refund
+                amount: ${ .orderTotal }
+          - compensateInventory:
+              call: inventoryService
+              with:
+                action: release
+                items: ${ .orderItems }
+        then: end
+```
+
+### Nested Try-Catch
+
+```yaml
+processWithRecovery:
+  try:
+    do:
+      - step1:
+          try:
+            call: service1
+          catch:
+            errors:
+              with:
+                status: 503
+            retry:
+              delay:
+                seconds: 2
+              limit:
+                attempt:
+                  count: 3
+      
+      - step2:
+          try:
+            call: service2
+            with:
+              data: ${ .step1.output }
+          catch:
+            errors:
+              with:
+                type: https://example.com/errors/validation
+            do:
+              - fixData:
+                  call: dataFixer
+                  with:
+                    data: ${ .step1.output }
+              - retryStep2:
+                  call: service2
+                  with:
+                    data: ${ .fixData.output }
+  catch:
+    errors: {}
+    do:
+      - logFailure:
+          call: logger
+          with:
+            message: Complete process failed
+      - notifyAdmin:
+          call: notificationService
+          with:
+            recipient: admin@example.com
+            message: Critical workflow failure
+```
+
+### Error Handling with Context Preservation
+
+```yaml
+do:
+  - initializeContext:
+      set:
+        processId: ${ .requestId }
+        startTime: ${ now }
+        status: processing
+  
+  - processData:
+      try:
+        call: processor
+        with:
+          data: ${ .inputData }
+      catch:
+        errors: {}
+        as: processingError
+        export:
+          as: ${ $context + { 
+            error: .processingError, 
+            status: "failed",
+            failedAt: now 
+          } }
+  
+  - finalizeStatus:
+      set:
+        finalStatus: ${ if $context.error then "failed" else "success" end }
+```
+
+## Raising Errors
+
+The `raise` task explicitly raises an error:
+
+```yaml
+validateInput:
+  call: validator
+  with:
+    data: ${ .inputData }
+
+checkValidation:
+  if: ${ .validateInput.output.isValid == false }
+  raise:
+    error:
+      type: https://serverlessworkflow.io/spec/1.0.0/errors/validation
+      status: 400
+      title: Validation Failed
+      detail: ${ .validateInput.output.message }
+```
+
+<ParamField path="raise.error" type="object" required>
+  The error to raise, following RFC 7807 Problem Details format
+</ParamField>
+
+### Conditional Error Raising
+
+```yaml
+do:
+  - checkBusinessRules:
+      call: businessRuleEngine
+      with:
+        data: ${ .orderData }
+  
+  - raiseIfViolation:
+      if: ${ .checkBusinessRules.output.violations | length > 0 }
+      raise:
+        error:
+          type: https://example.com/errors/business-rule
+          status: 422
+          title: Business Rule Violation
+          detail: ${ .checkBusinessRules.output.violations | map(.message) | join(", ") }
+```
+
+## Error Logging and Monitoring
+
+### Logging Errors
+
+```yaml
+processWithLogging:
+  try:
+    call: riskyOperation
+  catch:
+    errors: {}
+    as: caughtError
+    do:
+      - logError:
+          call: http
+          with:
+            method: post
+            endpoint:
+              uri: https://logging.example.com/errors
+            body:
+              workflowId: ${ $workflow.id }
+              taskName: ${ $task.name }
+              error: ${ .caughtError }
+              timestamp: ${ now }
+      
+      - handleError:
+          call: errorHandler
+          with:
+            error: ${ .caughtError }
+```
+
+### Metrics and Alerting
+
+```yaml
+processWithMetrics:
+  try:
+    call: monitoredOperation
+  catch:
+    errors: {}
+    as: operationError
+    do:
+      - incrementErrorCounter:
+          call: http
+          with:
+            method: post
+            endpoint:
+              uri: https://metrics.example.com/increment
+            body:
+              metric: operation_errors
+              tags:
+                service: ${ $task.name }
+                errorType: ${ .operationError.type }
+      
+      - sendAlert:
+          if: ${ .operationError.status >= 500 }
+          call: alertingService
+          with:
+            severity: high
+            message: ${ .operationError.detail }
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Catch specific errors first">
+    Handle specific error types before catching general errors to provide targeted recovery strategies.
+  </Step>
+  
+  <Step title="Use appropriate retry strategies">
+    Apply exponential backoff for transient failures and set reasonable retry limits to avoid infinite loops.
+  </Step>
+  
+  <Step title="Log all errors">
+    Always log errors with sufficient context for debugging and monitoring.
+  </Step>
+  
+  <Step title="Provide fallback mechanisms">
+    Implement fallback strategies like cached data or default values when services are unavailable.
+  </Step>
+  
+  <Step title="Clean up resources">
+    Use compensation tasks to release resources when errors occur midway through a process.
+  </Step>
+  
+  <Step title="Set appropriate timeouts">
+    Combine error handling with timeout configuration to prevent workflows from hanging indefinitely.
+  </Step>
+  
+  <Step title="Use standard error types">
+    Prefer standard error types for common failure scenarios to ensure consistency across workflows.
+  </Step>
+</Steps>
+
+## Common Pitfalls
+
+### Catching Too Broadly
+
+```yaml
+# Bad: Catches and ignores all errors
+try:
+  call: importantOperation
+catch:
+  errors: {}
+  # No error handling or logging
+
+# Good: Specific error handling with logging
+try:
+  call: importantOperation
+catch:
+  errors:
+    with:
+      type: https://example.com/errors/expected-error
+  as: error
+  do:
+    - logError:
+        call: logger
+        with:
+          error: ${ .error }
+```
+
+### Infinite Retry Loops
+
+```yaml
+# Bad: No retry limit
+retry:
+  delay:
+    seconds: 1
+
+# Good: Reasonable retry limit
+retry:
+  delay:
+    seconds: 1
+  limit:
+    attempt:
+      count: 5
+```
+
+### Not Handling Compensation
+
+```yaml
+# Bad: No compensation for partial failures
+do:
+  - reserveResource:
+      call: reserveService
+  - processResource:
+      call: processService  # If this fails, resource remains reserved
+
+# Good: Proper compensation
+do:
+  - reserveResource:
+      try:
+        call: reserveService
+      catch:
+        errors: {}
+        then: end
+  - processResource:
+      try:
+        call: processService
+      catch:
+        errors: {}
+        do:
+          - releaseResource:
+              call: releaseService
+```
+
+## Related Topics
+
+- [Workflows](/core/workflows) - Learn about workflow structure
+- [Tasks](/core/tasks) - Understand task types and properties
+- [Timeouts](/core/timeouts) - Configure timeout behavior
+- [Runtime Expressions](/core/runtime-expressions) - Use expressions in error handling

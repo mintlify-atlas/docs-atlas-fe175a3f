@@ -1,0 +1,381 @@
+---
+title: Input & Output
+description: Reference for configuring workflow and task input/output data transformation and validation
+---
+
+Input and output configurations document the structure and optionally configure transformations of workflow and task data. Proper documentation of schemas enables consuming applications to provide contextual auto-suggestions when handling runtime expressions.
+
+## Input
+
+Documents the structure and optionally configures the transformation of workflow/task input data.
+
+### Properties
+
+<ParamField path="schema" type="schema">
+  The schema used to describe and validate raw input data.
+  
+  Even though the schema is not required, it is strongly encouraged to document it, whenever feasible.
+  
+  See [Schema](#schema) for details.
+</ParamField>
+
+<ParamField path="from" type="string | object">
+  A runtime expression, if any, used to filter and/or mutate the workflow/task input.
+</ParamField>
+
+### Behavior
+
+When set, runtimes must validate raw input data against the defined schema **before** applying transformations, unless defined otherwise.
+
+### Examples
+
+#### Basic Input Schema
+
+```yaml
+input:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: number
+      required: [ orderId, amount ]
+```
+
+#### Input Transformation
+
+Extract specific data from input:
+
+```yaml
+input:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        order:
+          type: object
+          required: [ pet ]
+          properties:
+            pet:
+              type: object
+              required: [ id ]
+              properties:
+                id:
+                  type: string
+  from: .order.pet
+```
+
+#### Complex Input Filtering
+
+```yaml
+input:
+  from: |
+    {
+      "petId": .order.pet.id,
+      "quantity": .order.quantity,
+      "priority": (.order.priority // "normal")
+    }
+```
+
+## Output
+
+Documents the structure and optionally configures the transformations of workflow/task output data.
+
+### Properties
+
+<ParamField path="schema" type="schema">
+  The schema used to describe and validate output data.
+  
+  Even though the schema is not required, it is strongly encouraged to document it, whenever feasible.
+  
+  See [Schema](#schema) for details.
+</ParamField>
+
+<ParamField path="as" type="string | object">
+  A runtime expression, if any, used to filter and/or mutate the workflow/task output.
+</ParamField>
+
+### Behavior
+
+When set, runtimes must validate output data against the defined schema **after** applying transformations, unless defined otherwise.
+
+### Examples
+
+#### Basic Output Schema
+
+```yaml
+output:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        petId:
+          type: string
+        status:
+          type: string
+      required: [ petId, status ]
+```
+
+#### Output Transformation
+
+Transform output to specific format:
+
+```yaml
+output:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        petId:
+          type: string
+      required: [ petId ]
+  as:
+    petId: '${ .pet.id }'
+```
+
+#### Merging Output with Input
+
+```yaml
+output:
+  as: "$input + { availablePets: [.[] | select(.category.name == \"dog\" and (.tags[] | .breed == $input.order.breed))] }"
+```
+
+## Export
+
+Certain tasks need to set the workflow context to save the task output for later usage. Users set the content of the context through a runtime expression.
+
+### Properties
+
+<ParamField path="schema" type="schema">
+  The schema used to describe and validate context.
+  
+  Included to handle the non-frequent case in which the context has a known format.
+</ParamField>
+
+<ParamField path="as" type="string | object">
+  A runtime expression, if any, used to export the output data to the context.
+</ParamField>
+
+### Behavior
+
+The result of the expression is the new value of the context. The expression is evaluated against the transformed task output.
+
+### Examples
+
+#### Merge Task Output into Context
+
+```yaml
+export:
+  as: '$context+.'
+```
+
+#### Replace Context with Task Output
+
+```yaml
+export:
+  as: '.'
+```
+
+#### Export Specific Fields
+
+```yaml
+export:
+  as: |
+    $context + {
+      "lastOrderId": .orderId,
+      "lastTimestamp": .processedAt
+    }
+```
+
+## Schema
+
+Describes a data schema used for validation.
+
+### Properties
+
+<ParamField path="format" type="string" required>
+  The schema format.
+  
+  **Supported values:**
+  - `json`: Indicates the [JSON Schema](https://json-schema.org/) format
+</ParamField>
+
+<ParamField path="document" type="object">
+  The inline schema document.
+  
+  **Required** if `resource` has not been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="resource" type="externalResource">
+  The schema external resource.
+  
+  **Required** if `document` has not been set, otherwise ignored.
+</ParamField>
+
+### Examples
+
+#### Inline JSON Schema
+
+```yaml
+schema:
+  format: json
+  document:
+    type: object
+    properties:
+      id:
+        type: string
+      firstName:
+        type: string
+      lastName:
+        type: string
+    required: [ id, firstName, lastName ]
+```
+
+#### External Schema Resource
+
+```yaml
+schema:
+  format: json
+  resource:
+    endpoint: https://test.com/fake/schema/json/document.json
+```
+
+#### Schema with Authentication
+
+```yaml
+schema:
+  format: json
+  resource:
+    endpoint:
+      uri: https://api.example.com/schemas/order.json
+      authentication:
+        bearer:
+          token: ${ .secrets.schemaToken }
+```
+
+## Complete Examples
+
+### Workflow with Input/Output
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: pet-order
+  version: '1.0.0'
+input:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        order:
+          type: object
+          required: [ petId, quantity ]
+          properties:
+            petId:
+              type: string
+            quantity:
+              type: integer
+      required: [ order ]
+  from: .order
+do:
+  - processOrder:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.petstore.com/orders
+        body: ${ . }
+output:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        orderId:
+          type: string
+        status:
+          type: string
+      required: [ orderId, status ]
+  as:
+    orderId: ${ .id }
+    status: ${ .orderStatus }
+```
+
+### Task with Input/Output/Export
+
+```yaml
+do:
+  - fetchUserData:
+      input:
+        from: ${ { "userId": .request.userId } }
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/users/${ .userId }
+      output:
+        as: |
+          {
+            "userId": .id,
+            "name": .fullName,
+            "email": .emailAddress
+          }
+      export:
+        as: $context + { "currentUser": . }
+```
+
+### Nested Schema Definition
+
+```yaml
+input:
+  schema:
+    format: json
+    document:
+      type: object
+      properties:
+        customer:
+          type: object
+          properties:
+            id:
+              type: string
+            profile:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+              required: [ firstName, lastName, email ]
+          required: [ id, profile ]
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+            required: [ productId, quantity ]
+      required: [ customer, items ]
+```
+
+## Usage Notes
+
+- **Always document schemas** whenever feasible to enable better tooling support
+- Input schemas are validated **before** transformations
+- Output schemas are validated **after** transformations
+- Runtime expressions in `from` and `as` use JQ syntax by default
+- The `export` configuration allows tasks to modify the workflow context
+- External schema resources support authentication for secure access
+- Schema validation helps catch data issues early in workflow execution

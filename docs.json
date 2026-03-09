@@ -1,122 +1,190 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Serverless Workflow",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#ecccc4",
+    "light": "#425e81",
+    "dark": "#9aabbc"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.jpg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/serverlessworkflow/specification"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/serverlessworkflow/specification",
+      "slack": "https://cloud-native.slack.com/messages/serverless-workflow",
+      "linkedin": "https://www.linkedin.com/company/serverless-workflow/",
+      "x": "https://twitter.com/CNCFWorkflow"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "concepts"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core/workflows",
+              "core/tasks",
+              "core/task-flow",
+              "core/data-flow",
+              "core/runtime-expressions",
+              "core/fault-tolerance",
+              "core/timeouts",
+              "core/scheduling",
+              "core/events",
+              "core/authentication"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Advanced Topics",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "advanced/catalogs",
+              "advanced/interoperability",
+              "advanced/extensions",
+              "advanced/external-resources"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Examples",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "examples/overview",
+              "examples/basic-workflows",
+              "examples/event-driven",
+              "examples/service-orchestration",
+              "examples/error-handling"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "use-cases/overview",
+              "use-cases/data-backup",
+              "use-cases/github-automation",
+              "use-cases/ev-charging",
+              "use-cases/ai-content"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Workflow Definition",
             "pages": [
-              "api-reference/introduction"
+              "reference/workflow",
+              "reference/document",
+              "reference/use",
+              "reference/schedule",
+              "reference/input-output"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Tasks",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "reference/tasks/overview",
+              "reference/tasks/call",
+              "reference/tasks/do",
+              "reference/tasks/emit",
+              "reference/tasks/for",
+              "reference/tasks/fork",
+              "reference/tasks/listen",
+              "reference/tasks/raise",
+              "reference/tasks/run",
+              "reference/tasks/set",
+              "reference/tasks/switch",
+              "reference/tasks/try",
+              "reference/tasks/wait"
+            ]
+          },
+          {
+            "group": "Integration & Protocols",
+            "pages": [
+              "reference/protocols/http",
+              "reference/protocols/grpc",
+              "reference/protocols/openapi",
+              "reference/protocols/asyncapi",
+              "reference/protocols/custom"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/authentication",
+              "reference/error-handling",
+              "reference/retry-policies",
+              "reference/timeout-config",
+              "reference/event-filters",
+              "reference/catalogs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Ecosystem",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "ecosystem/overview",
+              "ecosystem/sdks",
+              "ecosystem/runtimes",
+              "ecosystem/tooling"
+            ]
+          },
+          {
+            "group": "Conformance",
+            "pages": [
+              "ecosystem/ctk/overview",
+              "ecosystem/ctk/conformance-testing",
+              "ecosystem/ctk/bdd"
+            ]
+          },
+          {
+            "group": "Comparison",
+            "pages": [
+              "ecosystem/comparison"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Get Involved",
+            "pages": [
+              "community/overview",
+              "community/contributing",
+              "community/governance",
+              "community/code-of-conduct"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "community/meetings",
+              "community/support",
+              "community/adoption"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

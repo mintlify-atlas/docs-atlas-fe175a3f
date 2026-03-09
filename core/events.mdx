@@ -1,0 +1,923 @@
+---
+title: Events
+description: Event-driven architecture, CloudEvents, emission, listening, and correlation in Serverless Workflow
+---
+
+## Overview
+
+Events play a crucial role in Serverless Workflow by facilitating communication and coordination between different components and services. They enable workflows to react to external stimuli, paving the way for event-driven architectures and real-time processing scenarios.
+
+Events are essentially messages that convey information about a specific occurrence or action, allowing workflows to respond dynamically to changes in their environment.
+
+<Info>
+  Events in Serverless Workflow adhere to the [CloudEvents specification](https://cloudevents.io/), ensuring interoperability and compatibility with event-driven systems.
+</Info>
+
+## CloudEvents Standard
+
+CloudEvents is a specification for describing event data in a common way. This standardization allows workflows to seamlessly interact with various event sources and consumers across different platforms and environments.
+
+### CloudEvent Structure
+
+A CloudEvent contains standardized attributes:
+
+```json
+{
+  "specversion": "1.0",
+  "type": "com.example.order.created",
+  "source": "https://api.example.com/orders",
+  "id": "A234-1234-1234",
+  "time": "2024-03-09T12:00:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "orderId": "12345",
+    "customerId": "67890",
+    "total": 99.99
+  }
+}
+```
+
+<ParamField path="specversion" type="string" required>
+  CloudEvents specification version (e.g., "1.0")
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  Event type identifier (e.g., "com.example.order.created")
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  Context in which the event occurred (URI)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the event
+</ParamField>
+
+<ParamField path="time" type="string">
+  Timestamp when the event occurred (ISO 8601 format)
+</ParamField>
+
+<ParamField path="datacontenttype" type="string">
+  Content type of the data attribute
+</ParamField>
+
+<ParamField path="data" type="any">
+  The event payload containing domain-specific information
+</ParamField>
+
+## Emitting Events
+
+The `emit` task allows workflows to publish events to event brokers or messaging systems. This capability enables workflows to broadcast notifications about various events, facilitating event-driven architectures.
+
+### Basic Event Emission
+
+```yaml
+emitOrderCreated:
+  emit:
+    event:
+      type: order.created
+      source: https://api.example.com/orders
+      data:
+        orderId: ${ .orderId }
+        customerId: ${ .customerId }
+        total: ${ .total }
+        timestamp: ${ now }
+```
+
+<ParamField path="emit.event" type="object" required>
+  The CloudEvent to emit
+</ParamField>
+
+### Emitting Multiple Events
+
+```yaml
+do:
+  - processOrder:
+      call: orderService
+      with:
+        order: ${ .orderData }
+  
+  - emitOrderEvents:
+      emit:
+        event:
+          type: order.processed
+          source: https://api.example.com/orders
+          data: ${ .processOrder.output }
+  
+  - notifyCustomer:
+      emit:
+        event:
+          type: customer.notification
+          source: https://api.example.com/notifications
+          data:
+            customerId: ${ .orderData.customerId }
+            message: Your order has been processed
+```
+
+### Emitting with Dynamic Properties
+
+```yaml
+emitDynamicEvent:
+  emit:
+    event:
+      type: ${ .eventType }
+      source: https://api.example.com
+      id: ${ .eventId }
+      data: ${ .eventData }
+      subject: ${ .eventSubject }
+      datacontenttype: application/json
+```
+
+### Complete Emission Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: ecommerce
+  name: order-processing
+  version: '1.0.0'
+
+do:
+  - validateOrder:
+      call: orderValidator
+      with:
+        order: ${ .orderData }
+  
+  - emitValidationComplete:
+      emit:
+        event:
+          type: order.validated
+          source: https://api.example.com/orders
+          data:
+            orderId: ${ .orderData.orderId }
+            valid: ${ .validateOrder.output.isValid }
+  
+  - processPayment:
+      if: ${ .validateOrder.output.isValid }
+      call: paymentService
+      with:
+        amount: ${ .orderData.total }
+  
+  - emitPaymentProcessed:
+      emit:
+        event:
+          type: payment.processed
+          source: https://api.example.com/payments
+          data:
+            orderId: ${ .orderData.orderId }
+            paymentId: ${ .processPayment.output.paymentId }
+            status: ${ .processPayment.output.status }
+```
+
+### Use Cases for Emitting Events
+
+#### Order Lifecycle Events
+
+```yaml
+do:
+  - createOrder:
+      call: orderService
+  
+  - emitCreated:
+      emit:
+        event:
+          type: order.created
+          source: https://api.example.com/orders
+          data: ${ .createOrder.output }
+  
+  - processOrder:
+      call: processor
+  
+  - emitProcessed:
+      emit:
+        event:
+          type: order.processed
+          source: https://api.example.com/orders
+          data: ${ .processOrder.output }
+  
+  - shipOrder:
+      call: shippingService
+  
+  - emitShipped:
+      emit:
+        event:
+          type: order.shipped
+          source: https://api.example.com/orders
+          data: ${ .shipOrder.output }
+```
+
+#### System Monitoring Events
+
+```yaml
+do:
+  - performHealthCheck:
+      call: healthChecker
+  
+  - emitHealthStatus:
+      emit:
+        event:
+          type: system.health.checked
+          source: https://monitoring.example.com
+          data:
+            status: ${ .performHealthCheck.output.status }
+            services: ${ .performHealthCheck.output.services }
+            timestamp: ${ now }
+```
+
+#### Data Update Notifications
+
+```yaml
+do:
+  - updateRecord:
+      call: databaseService
+      with:
+        action: update
+        data: ${ .recordData }
+  
+  - emitUpdateNotification:
+      emit:
+        event:
+          type: data.updated
+          source: https://api.example.com/records
+          subject: ${ .recordData.id }
+          data:
+            recordId: ${ .recordData.id }
+            updatedFields: ${ .updateRecord.output.changes }
+            updatedBy: ${ .userId }
+            timestamp: ${ now }
+```
+
+## Listening for Events
+
+The `listen` task provides a mechanism for workflows to await and react to external events. It enables workflows to subscribe to specific event types or patterns and trigger actions based on incoming events.
+
+### Basic Event Listening
+
+```yaml
+waitForOrder:
+  listen:
+    to:
+      any:
+        - with:
+            type: order.created
+            source: https://api.example.com/orders
+```
+
+<ParamField path="listen.to" type="object" required>
+  Defines the events to listen for using `any` or `all` semantics
+</ParamField>
+
+### Listening for Any Event
+
+Matches when **any one** of the specified events is received:
+
+```yaml
+waitForNotification:
+  listen:
+    to:
+      any:
+        - with:
+            type: user.registered
+            source: https://api.example.com/users
+        - with:
+            type: user.updated
+            source: https://api.example.com/users
+        - with:
+            type: user.deleted
+            source: https://api.example.com/users
+```
+
+<ParamField path="listen.to.any" type="array">
+  Array of event filters. The task completes when any one matching event is received.
+</ParamField>
+
+### Listening for All Events
+
+Matches when **all** of the specified events have been received:
+
+```yaml
+waitForApprovals:
+  listen:
+    to:
+      all:
+        - with:
+            type: approval.manager
+            source: https://api.example.com/approvals
+        - with:
+            type: approval.finance
+            source: https://api.example.com/approvals
+        - with:
+            type: approval.legal
+            source: https://api.example.com/approvals
+```
+
+<ParamField path="listen.to.all" type="array">
+  Array of event filters. The task completes only when all matching events have been received.
+</ParamField>
+
+### Event Filtering
+
+You can filter events by multiple attributes:
+
+```yaml
+listenForSpecificOrder:
+  listen:
+    to:
+      any:
+        - with:
+            type: order.updated
+            source: https://api.example.com/orders
+            subject: ${ .orderId }  # Only events for this specific order
+            data:
+              status: shipped  # Only when status is 'shipped'
+```
+
+### Listen with Timeout
+
+```yaml
+waitForPayment:
+  listen:
+    to:
+      any:
+        - with:
+            type: payment.received
+            source: https://payments.example.com
+  timeout:
+    after:
+      minutes: 5
+```
+
+<Warning>
+  If the listen task times out before receiving a matching event, it raises a timeout error that can be caught and handled.
+</Warning>
+
+### Complete Listening Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: fulfillment
+  name: order-fulfillment
+  version: '1.0.0'
+
+do:
+  - createOrder:
+      call: orderService
+      with:
+        order: ${ .orderData }
+  
+  - waitForPaymentAndInventory:
+      listen:
+        to:
+          all:
+            - with:
+                type: payment.confirmed
+                source: https://payments.example.com
+                subject: ${ .createOrder.output.orderId }
+            - with:
+                type: inventory.allocated
+                source: https://inventory.example.com
+                subject: ${ .createOrder.output.orderId }
+      timeout:
+        after:
+          minutes: 10
+  
+  - fulfillOrder:
+      call: fulfillmentService
+      with:
+        orderId: ${ .createOrder.output.orderId }
+        payment: ${ .waitForPaymentAndInventory.output[0] }
+        inventory: ${ .waitForPaymentAndInventory.output[1] }
+```
+
+### Use Cases for Listening
+
+#### Waiting for User Action
+
+```yaml
+do:
+  - sendVerificationEmail:
+      call: emailService
+      with:
+        recipient: ${ .userEmail }
+        template: verification
+  
+  - waitForVerification:
+      listen:
+        to:
+          any:
+            - with:
+                type: user.verified
+                source: https://api.example.com/users
+                subject: ${ .userId }
+      timeout:
+        after:
+          hours: 24
+  
+  - activateAccount:
+      call: accountService
+      with:
+        userId: ${ .userId }
+        action: activate
+```
+
+#### Coordinating Distributed Transactions
+
+```yaml
+do:
+  - initiateTransaction:
+      call: transactionCoordinator
+      with:
+        transactionId: ${ .txId }
+  
+  - waitForParticipants:
+      listen:
+        to:
+          all:
+            - with:
+                type: transaction.prepared
+                source: https://service-a.example.com
+                subject: ${ .txId }
+            - with:
+                type: transaction.prepared
+                source: https://service-b.example.com
+                subject: ${ .txId }
+            - with:
+                type: transaction.prepared
+                source: https://service-c.example.com
+                subject: ${ .txId }
+      timeout:
+        after:
+          seconds: 30
+  
+  - commitTransaction:
+      call: transactionCoordinator
+      with:
+        transactionId: ${ .txId }
+        action: commit
+```
+
+#### Real-Time Data Processing
+
+```yaml
+do:
+  - waitForSensorData:
+      listen:
+        to:
+          any:
+            - with:
+                type: sensor.reading
+                source: https://iot.example.com
+                data:
+                  temperature: { $gt: 100 }  # Temperature above threshold
+  
+  - triggerAlert:
+      call: alertingService
+      with:
+        severity: high
+        message: Temperature threshold exceeded
+        reading: ${ .waitForSensorData.output.data }
+```
+
+## Event Correlation
+
+Event correlation allows workflows to wait for and match multiple related events before proceeding.
+
+### Correlation Patterns
+
+#### Pattern: All Events Required
+
+```yaml
+waitForAllApprovals:
+  listen:
+    to:
+      all:
+        - with:
+            type: approval.received
+            source: https://approvals.example.com
+            data:
+              approver: manager
+        - with:
+            type: approval.received
+            source: https://approvals.example.com
+            data:
+              approver: finance
+        - with:
+            type: approval.received
+            source: https://approvals.example.com
+            data:
+              approver: hr
+```
+
+<Info>
+  The `all` correlation waits for every specified event to be received before the task completes.
+</Info>
+
+#### Pattern: First Event Wins
+
+```yaml
+waitForAnyResponse:
+  listen:
+    to:
+      any:
+        - with:
+            type: response.received
+            source: https://service-a.example.com
+        - with:
+            type: response.received
+            source: https://service-b.example.com
+        - with:
+            type: response.received
+            source: https://service-c.example.com
+```
+
+<Info>
+  The `any` correlation completes as soon as the first matching event is received.
+</Info>
+
+#### Pattern: Event Sequence
+
+```yaml
+do:
+  - waitForStepOne:
+      listen:
+        to:
+          any:
+            - with:
+                type: process.step1.complete
+                source: https://api.example.com
+  
+  - waitForStepTwo:
+      listen:
+        to:
+          any:
+            - with:
+                type: process.step2.complete
+                source: https://api.example.com
+  
+  - waitForStepThree:
+      listen:
+        to:
+          any:
+            - with:
+                type: process.step3.complete
+                source: https://api.example.com
+  
+  - finalizeProcess:
+      call: finalizationService
+```
+
+#### Pattern: Complex Correlation
+
+```yaml
+waitForOrderCompletion:
+  listen:
+    to:
+      all:
+        - with:
+            type: payment.success
+            source: https://payments.example.com
+            subject: ${ .orderId }
+        - with:
+            type: inventory.reserved
+            source: https://inventory.example.com
+            subject: ${ .orderId }
+        - with:
+            type: shipping.scheduled
+            source: https://shipping.example.com
+            subject: ${ .orderId }
+        - with:
+            type: notification.sent
+            source: https://notifications.example.com
+            subject: ${ .orderId }
+```
+
+## Event-Driven Workflow Patterns
+
+### Pattern: Event-Sourced Workflow
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: banking
+  name: account-manager
+  version: '1.0.0'
+
+schedule:
+  on:
+    events:
+      - with:
+          type: account.created
+          source: https://banking.example.com
+
+do:
+  - storeAccountCreated:
+      emit:
+        event:
+          type: account.event.stored
+          source: https://eventstore.example.com
+          data: ${ $workflow.input[0] }
+  
+  - processAccountSetup:
+      call: setupService
+      with:
+        accountData: ${ $workflow.input[0].data }
+  
+  - emitSetupComplete:
+      emit:
+        event:
+          type: account.setup.complete
+          source: https://banking.example.com
+          data: ${ .processAccountSetup.output }
+```
+
+### Pattern: Saga with Event Orchestration
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: travel
+  name: booking-saga
+  version: '1.0.0'
+
+do:
+  - bookFlight:
+      call: flightService
+      with:
+        booking: ${ .flightDetails }
+  
+  - emitFlightBooked:
+      emit:
+        event:
+          type: flight.booked
+          source: https://travel.example.com
+          data: ${ .bookFlight.output }
+  
+  - bookHotel:
+      try:
+        call: hotelService
+        with:
+          booking: ${ .hotelDetails }
+      catch:
+        errors: {}
+        do:
+          - compensateFlight:
+              call: flightService
+              with:
+                action: cancel
+                bookingId: ${ .bookFlight.output.id }
+          - emitFlightCancelled:
+              emit:
+                event:
+                  type: flight.cancelled
+                  source: https://travel.example.com
+                  data: ${ .compensateFlight.output }
+        then: end
+  
+  - emitHotelBooked:
+      emit:
+        event:
+          type: hotel.booked
+          source: https://travel.example.com
+          data: ${ .bookHotel.output }
+  
+  - emitBookingComplete:
+      emit:
+        event:
+          type: booking.complete
+          source: https://travel.example.com
+          data:
+            flight: ${ .bookFlight.output }
+            hotel: ${ .bookHotel.output }
+```
+
+### Pattern: Event-Driven State Machine
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: workflow
+  name: order-state-machine
+  version: '1.0.0'
+
+schedule:
+  on:
+    events:
+      - with:
+          type: order.created
+          source: https://api.example.com
+
+do:
+  - waitForStateTransition:
+      listen:
+        to:
+          any:
+            - with:
+                type: order.paid
+                subject: ${ $workflow.input[0].data.orderId }
+            - with:
+                type: order.cancelled
+                subject: ${ $workflow.input[0].data.orderId }
+  
+  - processBasedOnState:
+      switch:
+        - when: ${ .waitForStateTransition.output.type == "order.paid" }
+          then: processPaidOrder
+        - when: ${ .waitForStateTransition.output.type == "order.cancelled" }
+          then: processCancelledOrder
+  
+  - processPaidOrder:
+      do:
+        - fulfillOrder:
+            call: fulfillmentService
+        - emitFulfilled:
+            emit:
+              event:
+                type: order.fulfilled
+                source: https://api.example.com
+                data: ${ .fulfillOrder.output }
+      then: end
+  
+  - processCancelledOrder:
+      do:
+        - refundOrder:
+            call: refundService
+        - emitRefunded:
+            emit:
+              event:
+                type: order.refunded
+                source: https://api.example.com
+                data: ${ .refundOrder.output }
+```
+
+### Pattern: Event Fan-Out/Fan-In
+
+```yaml
+do:
+  - emitNotificationRequests:
+      fork:
+        branches:
+          - emailNotification:
+              emit:
+                event:
+                  type: notification.email.requested
+                  source: https://notifications.example.com
+                  data: ${ .notificationData }
+          
+          - smsNotification:
+              emit:
+                event:
+                  type: notification.sms.requested
+                  source: https://notifications.example.com
+                  data: ${ .notificationData }
+          
+          - pushNotification:
+              emit:
+                event:
+                  type: notification.push.requested
+                  source: https://notifications.example.com
+                  data: ${ .notificationData }
+  
+  - waitForAllConfirmations:
+      listen:
+        to:
+          all:
+            - with:
+                type: notification.email.sent
+                subject: ${ .notificationId }
+            - with:
+                type: notification.sms.sent
+                subject: ${ .notificationId }
+            - with:
+                type: notification.push.sent
+                subject: ${ .notificationId }
+      timeout:
+        after:
+          minutes: 5
+```
+
+## Event Best Practices
+
+<Steps>
+  <Step title="Use meaningful event types">
+    Event types should clearly describe what happened. Use hierarchical naming like `domain.entity.action` (e.g., `order.payment.completed`).
+  </Step>
+  
+  <Step title="Include context in events">
+    Always include sufficient context in event data so consumers can process events without additional lookups.
+  </Step>
+  
+  <Step title="Set appropriate timeouts">
+    When listening for events, always configure timeouts to prevent workflows from waiting indefinitely.
+  </Step>
+  
+  <Step title="Handle missing events">
+    Implement error handling for cases where expected events don't arrive within timeout periods.
+  </Step>
+  
+  <Step title="Use event correlation carefully">
+    When correlating multiple events, consider what happens if some events never arrive and implement appropriate fallbacks.
+  </Step>
+  
+  <Step title="Version your event schemas">
+    Include version information in event types or data to support schema evolution.
+  </Step>
+  
+  <Step title="Emit events at meaningful points">
+    Emit events at state transitions and important milestones to enable observability and integration.
+  </Step>
+</Steps>
+
+## Common Pitfalls
+
+### Pitfall 1: Missing Timeout on Listen
+
+```yaml
+# Bad: No timeout - workflow waits forever
+waitForEvent:
+  listen:
+    to:
+      any:
+        - with:
+            type: user.action
+
+# Good: Timeout prevents infinite waiting
+waitForEvent:
+  try:
+    listen:
+      to:
+        any:
+          - with:
+              type: user.action
+    timeout:
+      after:
+        hours: 24
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    do:
+      - handleTimeout:
+          call: timeoutHandler
+```
+
+### Pitfall 2: Insufficient Event Filtering
+
+```yaml
+# Bad: Receives all order events
+listen:
+  to:
+    any:
+      - with:
+          type: order.updated
+
+# Good: Filters for specific order
+listen:
+  to:
+    any:
+      - with:
+          type: order.updated
+          subject: ${ .orderId }
+          source: https://api.example.com/orders
+```
+
+### Pitfall 3: Not Handling Event Correlation Failures
+
+```yaml
+# Bad: No handling if all events don't arrive
+listen:
+  to:
+    all:
+      - with:
+          type: approval.manager
+      - with:
+          type: approval.finance
+
+# Good: Timeout with fallback
+try:
+  listen:
+    to:
+      all:
+        - with:
+            type: approval.manager
+        - with:
+            type: approval.finance
+  timeout:
+    after:
+      days: 3
+catch:
+  errors:
+    with:
+      type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+  do:
+    - escalateApproval:
+        call: escalationService
+```
+
+## Related Topics
+
+- [Workflows](/core/workflows) - Learn about workflow lifecycle events
+- [Scheduling](/core/scheduling) - Use event-driven scheduling
+- [Tasks](/core/tasks) - Understand emit and listen task types
+- [Timeouts](/core/timeouts) - Configure timeouts for event listening
+- [Data Flow](/core/data-flow) - Process event data in workflows

@@ -1,0 +1,387 @@
+---
+title: Event-Driven Workflow Examples
+description: Reactive workflows using events, listeners, and scheduling
+---
+
+Event-driven workflows enable reactive, asynchronous patterns where workflows respond to external events, wait for multiple correlated events, or run on schedules.
+
+## Event Scheduling
+
+Trigger workflows based on time schedules or incoming events.
+
+<Tabs>
+  <Tab title="Cron Schedule">
+    ```yaml schedule-cron.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: cron-schedule
+      version: '0.1.0'
+    schedule:
+      cron: 0 0 * * *
+    do:
+      - backup:
+          call: http
+          with:
+            method: post
+            endpoint: https://example.com/api/v1/backup/start
+    ```
+    
+    **What it demonstrates:**
+    - Time-based workflow scheduling with `schedule.cron`
+    - Standard cron expression format (`0 0 * * *` = daily at midnight)
+    - Automated recurring workflows
+    
+    **Use case:** Daily backups, periodic cleanup jobs, scheduled reports.
+  </Tab>
+  
+  <Tab title="Event-Driven Schedule">
+    ```yaml schedule-event-driven.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: event-driven-schedule
+      version: '0.1.0'
+    schedule:
+      on:
+        one:
+          with:
+            type: com.example.hospital.events.patients.heartbeat.low
+    do:
+      - callNurse:
+          call: http
+          with:
+            method: post
+            endpoint: https://hospital.example.com/api/v1/notify
+            body:
+              patientId: ${ $workflow.input[0].data.patient.id }
+              patientName: ${ $workflow.input[0].data.patient.name }
+              roomNumber: ${ $workflow.input[0].data.patient.room.number }
+              vitals:
+                heartRate: ${ $workflow.input[0].data.patient.vitals.bpm }
+                timestamp: ${ $workflow.input[0].data.timestamp }
+              message: "Alert: Patient's heartbeat is critically low. Immediate attention required."
+    ```
+    
+    **What it demonstrates:**
+    - Event-triggered workflow with `schedule.on.one`
+    - Filtering events by type
+    - Accessing event data via `$workflow.input[0]`
+    - Extracting nested event properties
+    
+    **Use case:** Reactive alerts, event-driven automation, real-time monitoring.
+  </Tab>
+</Tabs>
+
+## Listening to Single Events
+
+Wait for a specific event before proceeding.
+
+```yaml listen-to-one.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: listen-to-one
+  version: '0.1.0'
+do: 
+  - waitForStartup:
+      listen:
+        to:
+          one:
+            with:
+              type: com.virtual-wf-powered-race.events.race.started.v1
+  - startup:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://virtual-wf-powered-race.com/api/v4/cars/{carId}/start
+```
+
+**What it demonstrates:**
+- Waiting for a single event with `listen.to.one`
+- Event type filtering
+- Workflow pauses until the event arrives
+- Event data becomes available to subsequent tasks
+
+**Use case:** Coordinating distributed systems, waiting for external approvals, or manual triggers.
+
+## Listening to Any Event (First Wins)
+
+<Tabs>
+  <Tab title="Basic Any">
+    ```yaml listen-to-any.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: listen-to-any
+      version: '0.1.0'
+    do:
+      - callDoctor:
+          listen:
+            to:
+              any: []
+    ```
+    
+    **What it demonstrates:**
+    - Listening to any event without filters
+    - First event received triggers workflow continuation
+    - Catch-all event listener
+  </Tab>
+  
+  <Tab title="Filtered Any">
+    ```yaml listen-to-any-filter.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: listen-to-any-with-filter
+      version: '0.1.0'
+    do:
+      - getParcel:
+          listen:
+            to:
+              any:
+              - with:
+                  type: com.parcel-delivery.tracking.events.arrived.v3
+                  subject: ${ .parcelId }
+                  data:
+                    ${ .status == "arrived" or .status == "failed" }
+    ```
+    
+    **What it demonstrates:**
+    - Multiple event type filters with `any`
+    - Matching specific event subjects
+    - Data-level filtering with expressions
+    - First matching event triggers continuation
+    
+    **Use case:** Waiting for completion or failure, timeout alternatives, or multiple trigger sources.
+  </Tab>
+</Tabs>
+
+## Listening to All Events (Correlation)
+
+Wait for multiple related events before proceeding.
+
+<Tabs>
+  <Tab title="All Events">
+    ```yaml listen-to-all.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: listen-to-all
+      version: '0.1.0'
+    do:
+      - callDoctor:
+          listen:
+            to:
+              all:
+              - with:
+                  type: com.fake-hospital.vitals.measurements.temperature
+                  data: ${ .temperature > 38 }
+              - with:
+                  type: com.fake-hospital.vitals.measurements.bpm
+                  data: ${ .bpm < 60 or .bpm > 100 }
+    ```
+    
+    **What it demonstrates:**
+    - Waiting for multiple events with `listen.to.all`
+    - Different event types in correlation set
+    - Data filtering per event type
+    - All conditions must be met before proceeding
+  </Tab>
+  
+  <Tab title="Correlated Events">
+    ```yaml accumulate-room-readings.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: accumulate-room-readings
+      version: '0.1.0'
+    do:
+      - consumeReading:
+          listen:
+            to:
+              all:
+                - with:
+                    source: https://my.home.com/sensor
+                    type: my.home.sensors.temperature
+                  correlate:
+                    roomId:
+                      from: .roomid
+                - with:
+                    source: https://my.home.com/sensor
+                    type: my.home.sensors.humidity
+                  correlate:
+                    roomId:
+                      from: .roomid
+          output:
+            as: .data.reading
+      - logReading:
+          for:
+            each: reading
+            in: .readings
+          do:
+            - callOrderService:
+                call: openapi
+                with:
+                  document:
+                    endpoint: http://myorg.io/ordersservices.json
+                  operationId: logreading
+      - generateReport:
+          call: openapi
+          with:
+            document:
+              endpoint: http://myorg.io/ordersservices.json
+            operationId: produceReport
+    timeout:
+      after:
+        hours: 1
+    ```
+    
+    **What it demonstrates:**
+    - Event correlation using `correlate` keys
+    - Matching events from the same room (`roomId`)
+    - Custom correlation identifiers extracted from event data
+    - Collecting correlated events for batch processing
+    - Workflow-level timeout configuration
+    
+    **Use case:** IoT sensor aggregation, multi-step approval processes, or distributed transaction coordination.
+  </Tab>
+</Tabs>
+
+## Emitting Events
+
+Publish events from within workflows.
+
+```yaml emit.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: emit
+  version: '0.1.0'
+do:
+  - emitEvent:
+      emit:
+        event:
+          with:
+            source: https://petstore.com
+            type: com.petstore.order.placed.v1
+            data:
+              client:
+                firstName: Cruella
+                lastName: de Vil
+              items:
+                - breed: dalmatian
+                  quantity: 101
+```
+
+**What it demonstrates:**
+- Publishing CloudEvents with `emit`
+- Setting event metadata (source, type)
+- Including structured data in events
+- CloudEvents specification compliance
+
+**Use case:** Notifying other systems, triggering downstream workflows, or audit logging.
+
+## Continuous Event Processing
+
+Process events in a loop until a condition is met.
+
+<Tabs>
+  <Tab title="Until Condition">
+    ```yaml listen-to-any-until-condition.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: consume-until-condition
+      version: '0.1.0'
+    do:
+      - getParcel:
+          listen:
+            to:
+              any: []
+          until: ${ .status == "failed" or .status == "delivered" }
+    ```
+    
+    **What it demonstrates:**
+    - Consuming events repeatedly with `until`
+    - Conditional termination based on event data
+    - Processing stream of events until completion
+  </Tab>
+  
+  <Tab title="Consume Amount">
+    ```yaml call-asyncapi-subscribe-consume-amount.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: consume-until-condition
+      version: '0.1.0'
+    do:
+      - watchParcels:
+          call: asyncapi
+          with:
+            document:
+              endpoint: https://fake-parcel-delivery.com/async-api.json
+            operation: watchParcel
+            message:
+              consume:
+                amount: 5
+    ```
+    
+    **What it demonstrates:**
+    - Consuming a specific number of messages
+    - Message broker integration via AsyncAPI
+    - Batch event processing
+    
+    **Use case:** Processing message queues, batch event handling, or streaming data ingestion.
+  </Tab>
+</Tabs>
+
+## Complex Event-Driven Example
+
+Combining events with iteration and processing.
+
+```yaml for.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: for-example
+  version: '0.1.0'
+do:
+  - checkup:
+      for:
+        each: pet
+        in: .pets
+        at: index
+      while: .vet != null
+      do:
+        - waitForCheckup:
+            listen:
+              to:
+                one:
+                  with:
+                    type: com.fake.petclinic.pets.checkup.completed.v2
+            output:
+              as: '.pets + [{ "id": $pet.id }]'
+```
+
+**What it demonstrates:**
+- Combining iteration (`for`) with event listening (`listen`)
+- Processing events for each item in a collection
+- Building results incrementally with output transformation
+- Conditional loop continuation with `while`
+
+**Use case:** Batch processing with event confirmation, multi-item workflows, or parallel event coordination.
+
+## Summary
+
+Event-driven patterns enable:
+
+- **Reactive Workflows** - Respond to external events automatically
+- **Event Correlation** - Wait for multiple related events
+- **Scheduled Execution** - Run workflows on time-based or event-based triggers
+- **Event Publishing** - Emit events to notify other systems
+- **Stream Processing** - Continuously process event streams
+- **Asynchronous Coordination** - Coordinate distributed, long-running processes
+
+These patterns are essential for building scalable, loosely-coupled systems that react to real-time events.

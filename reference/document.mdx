@@ -1,0 +1,123 @@
+---
+title: Document
+description: Reference for documenting workflow definitions
+---
+
+The `document` property is a required component that documents the workflow definition, providing essential metadata about the workflow's identity, version, and purpose.
+
+## Properties
+
+<ParamField path="dsl" type="string" required>
+  The version of the DSL used to define the workflow.
+  
+  Example: `'1.0.3'`
+</ParamField>
+
+<ParamField path="namespace" type="string" required>
+  The workflow's namespace.
+  
+  Namespaces provide logical grouping and organization for workflows.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The workflow's name.
+  
+  This name uniquely identifies the workflow within its namespace.
+</ParamField>
+
+<ParamField path="version" type="string" required>
+  The workflow's [semantic version](https://semver.org/).
+  
+  Must follow semantic versioning format (e.g., `'0.1.0'`, `'1.2.3'`).
+</ParamField>
+
+<ParamField path="title" type="string">
+  The workflow's title.
+  
+  A human-readable title for the workflow, typically used for display purposes.
+</ParamField>
+
+<ParamField path="summary" type="string">
+  The workflow's Markdown summary.
+  
+  Supports full Markdown formatting for rich documentation.
+</ParamField>
+
+<ParamField path="tags" type="map[string, string]">
+  A key/value mapping of the workflow's tags, if any.
+  
+  Tags can be used for categorization, filtering, and metadata purposes.
+</ParamField>
+
+<ParamField path="metadata" type="map">
+  Additional information about the workflow.
+  
+  Can contain any arbitrary metadata relevant to the workflow.
+</ParamField>
+
+## Examples
+
+### Basic Document
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: hello-world
+  version: '1.0.0'
+```
+
+### Document with Full Metadata
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: order-pet
+  version: '0.1.0'
+  title: Order Pet - 1.0.0
+  summary: >
+    # Order Pet - 1.0.0
+    ## Table of Contents
+    - [Description](#description)
+    - [Requirements](#requirements)
+    ## Description
+    A sample workflow used to process an hypothetic pet order using the [PetStore API](https://petstore.swagger.io/)
+    ## Requirements
+    ### Secrets
+    - my-oauth2-secret
+  tags:
+    category: ecommerce
+    environment: production
+  metadata:
+    author: workflow-team
+    department: engineering
+```
+
+### Namespace Organization
+
+Namespaces help organize workflows by domain, team, or environment:
+
+```yaml
+# Development workflow
+document:
+  dsl: '1.0.3'
+  namespace: dev.payments
+  name: process-payment
+  version: '0.1.0'
+
+# Production workflow
+document:
+  dsl: '1.0.3'
+  namespace: prod.payments
+  name: process-payment
+  version: '1.0.0'
+```
+
+## Usage Notes
+
+- The `document` property is **required** for all workflows
+- The combination of `namespace`, `name`, and `version` should uniquely identify a workflow
+- Use semantic versioning to track workflow changes over time
+- The `summary` field supports Markdown, making it ideal for comprehensive documentation
+- Tags and metadata provide flexible ways to add custom information to workflows

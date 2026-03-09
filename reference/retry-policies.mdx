@@ -1,0 +1,266 @@
+---
+title: Retry Policies
+description: Define retry strategies for failed tasks in Serverless Workflow
+---
+
+## Overview
+
+The Retry is a fundamental concept in the Serverless Workflow DSL, used to define the strategy for retrying a failed task when an error is encountered during execution. This policy provides developers with fine-grained control over how and when to retry failed tasks, enabling robust error handling and fault tolerance within workflows.
+
+## Retry Policy
+
+<ParamField path="when" type="string">
+  A runtime expression used to determine whether or not to retry running the task, in a given context.
+</ParamField>
+
+<ParamField path="exceptWhen" type="string">
+  A runtime expression used to determine whether or not to retry running the task, in a given context.
+</ParamField>
+
+<ParamField path="delay" type="duration">
+  The duration, if any, to wait between retry attempts.
+</ParamField>
+
+<ParamField path="limit" type="object">
+  The limits, if any, to impose to the retry policy.
+</ParamField>
+
+<ParamField path="backoff" type="object">
+  The backoff strategy to use, if any.
+</ParamField>
+
+<ParamField path="jitter" type="object">
+  The parameters, if any, that control the randomness or variability of the delay between retry attempts.
+</ParamField>
+
+## Retry Limit
+
+The definition of retry limits.
+
+<ParamField path="attempt.count" type="integer">
+  The maximum attempts count.
+</ParamField>
+
+<ParamField path="attempt.duration" type="duration">
+  The duration limit, if any, for all retry attempts.
+</ParamField>
+
+<ParamField path="duration" type="duration">
+  The maximum duration, if any, during which to retry a given task.
+</ParamField>
+
+## Backoff Strategies
+
+The definition of a retry backoff strategy.
+
+<ParamField path="constant" type="object">
+  The definition of the constant backoff to use, if any.
+  
+  Required if `exponential` and `linear` are not set, otherwise ignored.
+</ParamField>
+
+<ParamField path="exponential" type="object">
+  The definition of the exponential backoff to use, if any.
+  
+  Required if `constant` and `linear` are not set, otherwise ignored.
+</ParamField>
+
+<ParamField path="linear" type="object">
+  The definition of the linear backoff to use, if any.
+  
+  Required if `constant` and `exponential` are not set, otherwise ignored.
+</ParamField>
+
+## Jitter
+
+Represents the definition of the parameters that control the randomness or variability of a delay, typically between retry attempts.
+
+<ParamField path="from" type="duration" required>
+  The minimum duration of the jitter range.
+</ParamField>
+
+<ParamField path="to" type="duration" required>
+  The maximum duration of the jitter range.
+</ParamField>
+
+## Examples
+
+### Exponential Backoff with Retry Limit
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: retry-example
+  version: '0.1.0'
+do:
+  - callExternalService:
+      try:
+        - makeRequest:
+            call: http
+            with:
+              method: get
+              endpoint: https://api.example.com/data
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        retry:
+          delay:
+            seconds: 3
+          backoff:
+            exponential: {}
+          limit:
+            attempt:
+              count: 5
+```
+
+### Retry with Jitter
+
+```yaml
+retry:
+  delay:
+    seconds: 1
+  backoff:
+    exponential: {}
+  jitter:
+    from:
+      milliseconds: 100
+    to:
+      milliseconds: 500
+  limit:
+    attempt:
+      count: 3
+```
+
+### Linear Backoff
+
+```yaml
+retry:
+  delay:
+    seconds: 2
+  backoff:
+    linear: {}
+  limit:
+    attempt:
+      count: 5
+    duration:
+      minutes: 5
+```
+
+### Constant Backoff with Duration Limit
+
+```yaml
+retry:
+  delay:
+    seconds: 5
+  backoff:
+    constant: {}
+  limit:
+    duration:
+      minutes: 10
+```
+
+### Conditional Retry
+
+```yaml
+retry:
+  when: .error.status >= 500
+  delay:
+    seconds: 2
+  backoff:
+    exponential: {}
+  limit:
+    attempt:
+      count: 3
+```
+
+### Retry with Exception Condition
+
+```yaml
+retry:
+  exceptWhen: .error.status == 401
+  delay:
+    seconds: 1
+  backoff:
+    exponential: {}
+  limit:
+    attempt:
+      count: 5
+```
+
+## Reusable Retry Policies
+
+You can define retry policies in the workflow's reusable components and reference them by name:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: reusable-retry-example
+  version: '0.1.0'
+use:
+  retries:
+    standardRetry:
+      delay:
+        seconds: 3
+      backoff:
+        exponential: {}
+      limit:
+        attempt:
+          count: 5
+do:
+  - callService:
+      try:
+        - makeRequest:
+            call: http
+            with:
+              method: get
+              endpoint: https://api.example.com/data
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/communication
+        retry: standardRetry
+```
+
+## Duration Format
+
+Durations can be defined through properties or with an ISO 8601 string:
+
+### Using Properties
+
+```yaml
+delay:
+  hours: 2
+  minutes: 15
+  seconds: 30
+```
+
+### Using ISO 8601 String
+
+```yaml
+delay: PT2H15M30S
+```
+
+### Duration Properties
+
+<ParamField path="days" type="integer">
+  Number of days, if any.
+</ParamField>
+
+<ParamField path="hours" type="integer">
+  Number of hours, if any.
+</ParamField>
+
+<ParamField path="minutes" type="integer">
+  Number of minutes, if any.
+</ParamField>
+
+<ParamField path="seconds" type="integer">
+  Number of seconds, if any.
+</ParamField>
+
+<ParamField path="milliseconds" type="integer">
+  Number of milliseconds, if any.
+</ParamField>

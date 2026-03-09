@@ -1,0 +1,36 @@
+---
+title: Emit Task
+description: Publish events to event brokers and messaging systems
+---
+
+Allows workflows to publish events to event brokers or messaging systems, facilitating communication and coordination between different components and services. With the Emit task, workflows can seamlessly integrate with event-driven architectures, enabling real-time processing, event-driven decision-making, and reactive behavior based on incoming events.
+
+## Properties
+
+<ParamField path="emit.event" type="eventProperties" required>
+  Defines the event to emit.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: emit-example
+  version: '0.1.0'
+do:
+  - emitEvent:
+      emit:
+        event:
+          with:
+            source: https://petstore.com
+            type: com.petstore.order.placed.v1
+            data:
+              client:
+                firstName: Cruella
+                lastName: de Vil
+              items:
+                - breed: dalmatian
+                  quantity: 101
+```

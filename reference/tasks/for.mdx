@@ -1,0 +1,54 @@
+---
+title: For Task
+description: Iterate over collections and execute subtasks
+---
+
+Allows workflows to iterate over a collection of items, executing a defined set of subtasks for each item in the collection. This task type is instrumental in handling scenarios such as batch processing, data transformation, and repetitive operations across datasets.
+
+## Properties
+
+<ParamField path="for.each" type="string" default="item">
+  The name of the variable used to store the current item being enumerated.
+</ParamField>
+
+<ParamField path="for.in" type="string" required>
+  A runtime expression used to get the collection to enumerate.
+</ParamField>
+
+<ParamField path="for.at" type="string" default="index">
+  The name of the variable used to store the index of the current item being enumerated.
+</ParamField>
+
+<ParamField path="while" type="string">
+  A runtime expression that represents the condition, if any, that must be met for the iteration to continue.
+</ParamField>
+
+<ParamField path="do" type="map[string, task]" required>
+  The task(s) to perform for each item in the collection.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: for-example
+  version: '0.1.0'
+do:
+  - checkup:
+      for:
+        each: pet
+        in: .pets
+        at: index
+      while: .vet != null
+      do:
+        - waitForCheckup:
+            listen:
+              to:
+                one:
+                  with:
+                    type: com.fake.petclinic.pets.checkup.completed.v2
+            output:
+              as: '.pets + [{ "id": $pet.id }]'
+```

@@ -1,0 +1,819 @@
+---
+title: Authentication
+description: Authentication schemes, policies, and secure access patterns in Serverless Workflow
+---
+
+## Overview
+
+Authentication in Serverless Workflow specifies the method by which the workflow accesses protected resources or services. The DSL supports a comprehensive suite of standard authentication mechanisms that can be defined globally or associated with specific endpoints.
+
+<Info>
+  External resources, function calls, and HTTP endpoints may all define authentication to ensure secure access to protected services.
+</Info>
+
+## Authentication Mechanisms
+
+The Serverless Workflow DSL supports several standard authentication schemes:
+
+### Basic Authentication
+
+Utilizes a username-password pair for authentication:
+
+```yaml
+use:
+  authentications:
+    myBasicAuth:
+      basic:
+        username: admin
+        password: secret123
+```
+
+<ParamField path="basic.username" type="string" required>
+  The username for basic authentication
+</ParamField>
+
+<ParamField path="basic.password" type="string" required>
+  The password for basic authentication
+</ParamField>
+
+#### Using Basic Authentication
+
+```yaml
+do:
+  - callProtectedApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/protected
+          authentication: myBasicAuth
+```
+
+#### Inline Basic Authentication
+
+```yaml
+do:
+  - callWithInlineAuth:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+          authentication:
+            basic:
+              username: user
+              password: pass
+```
+
+### Bearer Token Authentication
+
+Uses a bearer token for authentication:
+
+```yaml
+use:
+  authentications:
+    myBearerAuth:
+      bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+<ParamField path="bearer" type="string" required>
+  The bearer token for authentication
+</ParamField>
+
+#### Using Bearer Authentication
+
+```yaml
+do:
+  - callApiWithToken:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/secure
+          authentication: myBearerAuth
+```
+
+#### Dynamic Bearer Token
+
+```yaml
+use:
+  authentications:
+    dynamicBearer:
+      bearer: ${ .userToken }
+
+do:
+  - callWithUserToken:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/user-data
+          authentication: dynamicBearer
+```
+
+#### Bearer Token from Secrets
+
+```yaml
+use:
+  secrets:
+    - apiToken
+  
+  authentications:
+    secretBearer:
+      bearer: ${ $secrets.apiToken }
+
+do:
+  - secureCall:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+          authentication: secretBearer
+```
+
+<Warning>
+  Use `$secrets` with caution when defining authentication. Ensure secrets are properly secured and not inadvertently exposed in logs or outputs.
+</Warning>
+
+### OAuth2 Authentication
+
+Implements OAuth2 authorization framework for secure access:
+
+```yaml
+use:
+  authentications:
+    myOAuth2:
+      oauth2:
+        authority: http://keycloak/realms/fake-authority/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: workflow-runtime
+          secret: workflow-runtime-client-secret
+        scopes: [api, read, write]
+        audiences: [runtime]
+```
+
+<ParamField path="oauth2.authority" type="string" required>
+  The OAuth2 authorization server endpoint (OIDC discovery endpoint)
+</ParamField>
+
+<ParamField path="oauth2.grant" type="string" required>
+  The OAuth2 grant type (e.g., `client-credentials`, `password`, `authorization-code`)
+</ParamField>
+
+<ParamField path="oauth2.client" type="object" required>
+  OAuth2 client credentials
+</ParamField>
+
+<ParamField path="oauth2.client.id" type="string" required>
+  The OAuth2 client identifier
+</ParamField>
+
+<ParamField path="oauth2.client.secret" type="string" required>
+  The OAuth2 client secret
+</ParamField>
+
+<ParamField path="oauth2.scopes" type="array">
+  Array of requested OAuth2 scopes
+</ParamField>
+
+<ParamField path="oauth2.audiences" type="array">
+  Array of intended audiences for the token
+</ParamField>
+
+#### Client Credentials Flow
+
+```yaml
+use:
+  authentications:
+    serviceAuth:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: my-service-client
+          secret: my-service-secret
+        scopes: [api.read, api.write]
+
+do:
+  - callMicroservice:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://microservice.example.com/api
+          authentication: serviceAuth
+        body: ${ .requestData }
+```
+
+#### Password Grant Flow
+
+```yaml
+use:
+  authentications:
+    userAuth:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: password
+        client:
+          id: user-client
+          secret: user-client-secret
+        username: ${ .username }
+        password: ${ .password }
+        scopes: [profile, email]
+
+do:
+  - getUserProfile:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/profile
+          authentication: userAuth
+```
+
+#### Authorization Code Flow
+
+```yaml
+use:
+  authentications:
+    webAuth:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: authorization-code
+        client:
+          id: web-app-client
+          secret: web-app-secret
+        redirectUri: https://myapp.example.com/callback
+        scopes: [openid, profile, email]
+
+do:
+  - accessProtectedResource:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/protected-resource
+          authentication: webAuth
+```
+
+### Custom Authentication Schemes
+
+While the DSL provides standard authentication mechanisms, you can also implement custom authentication:
+
+```yaml
+use:
+  authentications:
+    customAuth:
+      # Custom authentication properties
+      scheme: custom
+      properties:
+        apiKey: ${ $secrets.customApiKey }
+        signature: ${ .computedSignature }
+```
+
+## Authentication Policies
+
+Authentication policies can be defined globally and referenced by name throughout the workflow:
+
+### Defining Authentication Policies
+
+```yaml
+use:
+  authentications:
+    apiKeyAuth:
+      bearer: ${ $secrets.apiKey }
+    
+    serviceAuth:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: service-client
+          secret: ${ $secrets.serviceClientSecret }
+        scopes: [api]
+    
+    adminAuth:
+      basic:
+        username: admin
+        password: ${ $secrets.adminPassword }
+```
+
+### Referencing Authentication Policies
+
+```yaml
+do:
+  - callPublicApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/public
+          authentication: apiKeyAuth
+  
+  - callServiceApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://service.example.com/data
+          authentication: serviceAuth
+  
+  - callAdminApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://admin.example.com/config
+          authentication: adminAuth
+```
+
+## Authentication with External Resources
+
+External resources can specify authentication for secure access:
+
+```yaml
+use:
+  resources:
+    protectedDatabase:
+      endpoint:
+        uri: https://database.example.com
+        authentication:
+          basic:
+            username: dbuser
+            password: ${ $secrets.dbPassword }
+    
+    secureApi:
+      endpoint:
+        uri: https://secure-api.example.com
+        authentication:
+          bearer: ${ $secrets.apiToken }
+```
+
+## Authentication Patterns
+
+### Pattern: Multi-Tier Authentication
+
+```yaml
+use:
+  secrets:
+    - tier1Token
+    - tier2Token
+    - tier3Token
+  
+  authentications:
+    tier1Auth:
+      bearer: ${ $secrets.tier1Token }
+    tier2Auth:
+      bearer: ${ $secrets.tier2Token }
+    tier3Auth:
+      bearer: ${ $secrets.tier3Token }
+
+do:
+  - callTier1:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://tier1.example.com/api
+          authentication: tier1Auth
+  
+  - callTier2:
+      if: ${ .callTier1.output.needsTier2 }
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://tier2.example.com/api
+          authentication: tier2Auth
+  
+  - callTier3:
+      if: ${ .callTier2.output.needsTier3 }
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://tier3.example.com/api
+          authentication: tier3Auth
+```
+
+### Pattern: Token Refresh
+
+```yaml
+do:
+  - getAccessToken:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://auth.example.com/token
+        body:
+          grant_type: client_credentials
+          client_id: ${ $secrets.clientId }
+          client_secret: ${ $secrets.clientSecret }
+      export:
+        as: ${ $context + { accessToken: $output.body.access_token } }
+  
+  - callApiWithToken:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://api.example.com/data
+            authentication:
+              bearer: ${ $context.accessToken }
+      catch:
+        errors:
+          with:
+            status: 401
+        do:
+          - refreshToken:
+              call: http
+              with:
+                method: post
+                endpoint:
+                  uri: https://auth.example.com/token
+                body:
+                  grant_type: refresh_token
+                  refresh_token: ${ $context.refreshToken }
+              export:
+                as: ${ $context + { accessToken: $output.body.access_token } }
+          
+          - retryCall:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://api.example.com/data
+                  authentication:
+                    bearer: ${ $context.accessToken }
+```
+
+### Pattern: Service-to-Service Authentication
+
+```yaml
+use:
+  authentications:
+    serviceA:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: service-a-client
+          secret: ${ $secrets.serviceASecret }
+        scopes: [service-a-api]
+    
+    serviceB:
+      oauth2:
+        authority: https://auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: service-b-client
+          secret: ${ $secrets.serviceBSecret }
+        scopes: [service-b-api]
+
+do:
+  - callServiceA:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://service-a.example.com/data
+          authentication: serviceA
+  
+  - callServiceB:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://service-b.example.com/process
+          authentication: serviceB
+        body: ${ .callServiceA.output }
+```
+
+### Pattern: Conditional Authentication
+
+```yaml
+use:
+  authentications:
+    publicAuth:
+      bearer: ${ $secrets.publicToken }
+    premiumAuth:
+      bearer: ${ $secrets.premiumToken }
+
+do:
+  - determineAuthLevel:
+      call: userService
+      with:
+        userId: ${ .userId }
+  
+  - callApiWithAppropriateAuth:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+          authentication: ${ if .determineAuthLevel.output.isPremium then "premiumAuth" else "publicAuth" end }
+```
+
+### Pattern: Federated Authentication
+
+```yaml
+use:
+  authentications:
+    providerA:
+      oauth2:
+        authority: https://provider-a.example.com/.well-known/openid-configuration
+        grant: authorization-code
+        client:
+          id: client-a
+          secret: ${ $secrets.providerASecret }
+    
+    providerB:
+      oauth2:
+        authority: https://provider-b.example.com/.well-known/openid-configuration
+        grant: authorization-code
+        client:
+          id: client-b
+          secret: ${ $secrets.providerBSecret }
+
+do:
+  - selectProvider:
+      switch:
+        - when: ${ .authProvider == "provider-a" }
+          then: authenticateWithA
+        - when: ${ .authProvider == "provider-b" }
+          then: authenticateWithB
+  
+  - authenticateWithA:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/resource
+          authentication: providerA
+      then: accessResource
+  
+  - authenticateWithB:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/resource
+          authentication: providerB
+      then: accessResource
+  
+  - accessResource:
+      call: processResource
+```
+
+## Authorization Descriptor
+
+The `$authorization` runtime expression argument provides access to resolved authorization information:
+
+```yaml
+do:
+  - callAuthenticatedApi:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+          authentication: myAuth
+  
+  - logAuthInfo:
+      call: logger
+      with:
+        scheme: ${ $authorization.scheme }      # e.g., "Bearer"
+        parameter: ${ $authorization.parameter } # e.g., token value
+```
+
+<ParamField path="$authorization.scheme" type="string">
+  The resolved authorization scheme (e.g., "Bearer", "Basic")
+</ParamField>
+
+<ParamField path="$authorization.parameter" type="string">
+  The resolved authorization parameter (e.g., token, encoded credentials)
+</ParamField>
+
+<Warning>
+  Be cautious when logging or outputting `$authorization.parameter` as it contains sensitive credentials.
+</Warning>
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Use secrets for sensitive data">
+    Store all passwords, tokens, and keys in secrets rather than hardcoding them in workflow definitions.
+  </Step>
+  
+  <Step title="Reference authentication policies by name">
+    Define authentication policies globally and reference them by name to avoid duplication and improve maintainability.
+  </Step>
+  
+  <Step title="Use appropriate authentication schemes">
+    Choose OAuth2 for service-to-service communication, bearer tokens for API access, and basic auth only for simple internal services.
+  </Step>
+  
+  <Step title="Implement token refresh">
+    Handle token expiration gracefully by implementing refresh logic when using OAuth2 or other token-based authentication.
+  </Step>
+  
+  <Step title="Minimize scope and privileges">
+    Request only the minimum scopes and privileges necessary for the workflow to perform its tasks.
+  </Step>
+  
+  <Step title="Rotate credentials regularly">
+    Implement a process for rotating secrets and updating authentication policies without workflow downtime.
+  </Step>
+  
+  <Step title="Never log credentials">
+    Avoid logging authentication parameters or secrets. Use secure logging practices and sanitize outputs.
+  </Step>
+</Steps>
+
+## Common Authentication Scenarios
+
+### Scenario: Calling Third-Party APIs
+
+```yaml
+use:
+  secrets:
+    - stripeApiKey
+    - twilioAuthToken
+  
+  authentications:
+    stripeAuth:
+      bearer: ${ $secrets.stripeApiKey }
+    
+    twilioAuth:
+      basic:
+        username: ${ $secrets.twilioAccountSid }
+        password: ${ $secrets.twilioAuthToken }
+
+do:
+  - processPayment:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://api.stripe.com/v1/charges
+          authentication: stripeAuth
+        body: ${ .paymentData }
+  
+  - sendSmsNotification:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://api.twilio.com/2010-04-01/Accounts/${ $secrets.twilioAccountSid }/Messages.json
+          authentication: twilioAuth
+        body:
+          To: ${ .phoneNumber }
+          Body: Payment processed successfully
+```
+
+### Scenario: Microservices Communication
+
+```yaml
+use:
+  authentications:
+    internalAuth:
+      oauth2:
+        authority: https://internal-auth.example.com/.well-known/openid-configuration
+        grant: client-credentials
+        client:
+          id: orchestrator-service
+          secret: ${ $secrets.orchestratorSecret }
+        scopes: [internal-api]
+        audiences: [user-service, order-service, inventory-service]
+
+do:
+  - getUserData:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://user-service/api/users/${ .userId }
+          authentication: internalAuth
+  
+  - getOrderHistory:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://order-service/api/orders?userId=${ .userId }
+          authentication: internalAuth
+  
+  - checkInventory:
+      call: http
+      with:
+        method: post
+        endpoint:
+          uri: https://inventory-service/api/check
+          authentication: internalAuth
+        body: ${ .getOrderHistory.output }
+```
+
+### Scenario: Multi-Environment Configuration
+
+```yaml
+use:
+  secrets:
+    - devApiToken
+    - stagingApiToken
+    - prodApiToken
+  
+  authentications:
+    devAuth:
+      bearer: ${ $secrets.devApiToken }
+    stagingAuth:
+      bearer: ${ $secrets.stagingApiToken }
+    prodAuth:
+      bearer: ${ $secrets.prodApiToken }
+
+do:
+  - determineEnvironment:
+      set:
+        env: ${ $runtime.metadata.environment }
+  
+  - callApiWithEnvAuth:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: ${ "https://api-" + .env + ".example.com/data" }
+          authentication: ${ .env + "Auth" }
+```
+
+## Troubleshooting Authentication
+
+### Handling Authentication Failures
+
+```yaml
+do:
+  - tryAuthenticatedCall:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://api.example.com/data
+            authentication: myAuth
+      catch:
+        errors:
+          with:
+            status: 401
+        as: authError
+        do:
+          - logAuthFailure:
+              call: logger
+              with:
+                error: ${ .authError }
+                message: Authentication failed
+          
+          - notifyAdmin:
+              call: notificationService
+              with:
+                message: Authentication failure detected
+                details: ${ .authError }
+```
+
+### Testing Authentication
+
+```yaml
+do:
+  - testAuthentication:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://api.example.com/auth/test
+            authentication: myAuth
+      catch:
+        errors: {}
+        as: testError
+        do:
+          - logTestResult:
+              call: logger
+              with:
+                success: false
+                error: ${ .testError }
+  
+  - logSuccess:
+      if: ${ .testError == null }
+      call: logger
+      with:
+        success: true
+        message: Authentication test passed
+```
+
+## Related Topics
+
+- [Workflows](/core/workflows) - Learn about workflow secrets and components
+- [Runtime Expressions](/core/runtime-expressions) - Use secrets in expressions
+- [Fault Tolerance](/core/fault-tolerance) - Handle authentication failures
+- [Tasks](/core/tasks) - Use authentication in HTTP calls

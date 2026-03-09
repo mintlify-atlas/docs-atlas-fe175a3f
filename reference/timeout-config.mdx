@@ -1,0 +1,253 @@
+---
+title: Timeout Configuration
+description: Define timeout constraints for workflows and tasks in Serverless Workflow
+---
+
+## Overview
+
+Defines a workflow or task timeout. Timeouts allow you to ensure that workflows and tasks complete within a specified time frame, preventing indefinite execution.
+
+## Timeout Object
+
+<ParamField path="after" type="duration" required>
+  The duration after which the workflow or task times out.
+</ParamField>
+
+## Duration Format
+
+Durations can be defined through properties, with an ISO 8601 string, or with a runtime expression that is evaluated to an ISO 8601 string.
+
+### Duration Properties
+
+<ParamField path="days" type="integer">
+  Number of days, if any.
+</ParamField>
+
+<ParamField path="hours" type="integer">
+  Number of hours, if any.
+</ParamField>
+
+<ParamField path="minutes" type="integer">
+  Number of minutes, if any.
+</ParamField>
+
+<ParamField path="seconds" type="integer">
+  Number of seconds, if any.
+</ParamField>
+
+<ParamField path="milliseconds" type="integer">
+  Number of milliseconds, if any.
+</ParamField>
+
+## Examples
+
+### Workflow-Level Timeout
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: timeout-example
+  version: '0.1.0'
+do:
+  - waitAMinute:
+      wait:
+        seconds: 60
+timeout:
+  after:
+    seconds: 30
+```
+
+In this example, the workflow will timeout after 30 seconds, even though the task is configured to wait for 60 seconds.
+
+### Task-Level Timeout with Properties
+
+```yaml
+do:
+  - callExternalService:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/slow-endpoint
+      timeout:
+        after:
+          minutes: 5
+          seconds: 30
+```
+
+### Task-Level Timeout with ISO 8601
+
+```yaml
+do:
+  - processData:
+      call: http
+      with:
+        method: post
+        endpoint: https://api.example.com/process
+        body:
+          data: "large dataset"
+      timeout:
+        after: PT10M
+```
+
+### Multiple Timeouts (Workflow and Task)
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: multi-timeout-example
+  version: '0.1.0'
+do:
+  - step1:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/fast
+      timeout:
+        after:
+          seconds: 10
+  - step2:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/slow
+      timeout:
+        after:
+          minutes: 2
+timeout:
+  after:
+    minutes: 5
+```
+
+In this example:
+- `step1` will timeout after 10 seconds
+- `step2` will timeout after 2 minutes
+- The entire workflow will timeout after 5 minutes
+
+### Reusable Timeout Configuration
+
+You can define timeout configurations in the workflow's reusable components and reference them by name:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: reusable-timeout-example
+  version: '0.1.0'
+use:
+  timeouts:
+    shortTimeout:
+      after:
+        seconds: 30
+    longTimeout:
+      after:
+        minutes: 10
+do:
+  - quickTask:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/quick
+      timeout: shortTimeout
+  - slowTask:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/slow
+      timeout: longTimeout
+```
+
+### Dynamic Timeout with Runtime Expression
+
+```yaml
+do:
+  - dynamicTask:
+      call: http
+      with:
+        method: get
+        endpoint: https://api.example.com/data
+      timeout:
+        after: ${ .config.timeout }
+```
+
+### Timeout with Wait Task
+
+```yaml
+do:
+  - pauseExecution:
+      wait:
+        seconds: 120
+      timeout:
+        after:
+          seconds: 100
+```
+
+In this example, the wait task is configured to wait for 120 seconds, but it will timeout after 100 seconds.
+
+## Duration Examples
+
+### Using Properties
+
+```yaml
+after:
+  hours: 2
+  minutes: 15
+  seconds: 30
+```
+
+### Using ISO 8601 Duration String
+
+```yaml
+# 2 hours, 15 minutes, and 30 seconds
+after: PT2H15M30S
+
+# 30 seconds
+after: PT30S
+
+# 5 minutes
+after: PT5M
+
+# 1 day
+after: P1D
+
+# 1 day, 12 hours
+after: P1DT12H
+```
+
+## Timeout Behavior
+
+<Note>
+  When a timeout occurs:
+  - The workflow or task execution is terminated
+  - A timeout error is raised with type `https://serverlessworkflow.io/spec/1.0.0/errors/timeout` and status `408`
+  - Error handlers (if configured) can catch and handle the timeout error
+</Note>
+
+## Handling Timeout Errors
+
+```yaml
+do:
+  - tryWithTimeout:
+      try:
+        - slowTask:
+            call: http
+            with:
+              method: get
+              endpoint: https://api.example.com/slow
+            timeout:
+              after:
+                seconds: 30
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        do:
+          - handleTimeout:
+              call: http
+              with:
+                method: post
+                endpoint: https://logging.example.com/log
+                body:
+                  message: "Task timed out after 30 seconds"
+```

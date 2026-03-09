@@ -1,0 +1,307 @@
+---
+title: Run Task
+description: Execute containers, scripts, shells, and workflows
+---
+
+Provides the capability to execute external containers, shell commands, scripts, or workflows.
+
+## Properties
+
+<ParamField path="run.container" type="container">
+  The definition of the container to run. Required if `script`, `shell` and `workflow` have not been set.
+</ParamField>
+
+<ParamField path="run.script" type="script">
+  The definition of the script to run. Required if `container`, `shell` and `workflow` have not been set.
+</ParamField>
+
+<ParamField path="run.shell" type="shell">
+  The definition of the shell command to run. Required if `container`, `script` and `workflow` have not been set.
+</ParamField>
+
+<ParamField path="run.workflow" type="workflow">
+  The definition of the workflow to run. Required if `container`, `script` and `shell` have not been set.
+</ParamField>
+
+<ParamField path="await" type="boolean" default={true}>
+  Determines whether or not the process to run should be awaited for.
+  
+  When set to `false`, the task cannot wait for the process to complete and thus cannot output the process's result. In this case, it should simply output its transformed input.
+</ParamField>
+
+<ParamField path="return" type="string" default="stdout">
+  Configures the output of the process.
+  
+  Supported values:
+  - `stdout` - Outputs the content of the process STDOUT
+  - `stderr` - Outputs the content of the process STDERR
+  - `code` - Outputs the process's exit code
+  - `all` - Outputs the exit code, STDOUT content and STDERR content, wrapped into a new processResult object
+  - `none` - Does not output anything
+</ParamField>
+
+## Container Process
+
+Enables the execution of external processes encapsulated within a containerized environment.
+
+### Properties
+
+<ParamField path="image" type="string" required>
+  The name of the container image to run.
+</ParamField>
+
+<ParamField path="name" type="string">
+  A runtime expression, if any, used to give specific name to the container.
+</ParamField>
+
+<ParamField path="command" type="string">
+  The command, if any, to execute on the container.
+</ParamField>
+
+<ParamField path="ports" type="map">
+  The container's port mappings, if any.
+</ParamField>
+
+<ParamField path="volumes" type="map">
+  The container's volume mappings, if any.
+</ParamField>
+
+<ParamField path="environment" type="map">
+  A key/value mapping of the environment variables, if any, to use when running the configured process.
+</ParamField>
+
+<ParamField path="stdin" type="string">
+  A runtime expression, if any, passed as standard input to the command or default container CMD.
+</ParamField>
+
+<ParamField path="arguments" type="string[]">
+  A list of the arguments, if any, passed as argv to the command or default container CMD.
+</ParamField>
+
+<ParamField path="lifetime" type="containerLifetime">
+  An object used to configure the container's lifetime.
+</ParamField>
+
+<ParamField path="pullPolicy" type="string" default="ifNotPresent">
+  Policy that controls how the container's image should be pulled from the registry.
+</ParamField>
+
+<Note>
+When a container process is executed, runtime implementations are recommended to follow a predictable naming convention for the container name. This can improve monitoring, logging, and container lifecycle management.
+
+The Serverless Workflow specification recommends using the following convention: `{workflow.name}-{uuid}.{workflow.namespace}-{task.name}`
+</Note>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: run-container-example
+  version: '0.1.0'
+do:
+  - setInput:
+      set:
+        message: Hello World
+  - runContainer:
+      input:
+        from: ${ .message }
+      run:
+        container:
+          image: alpine
+          stdin: ${ . }
+          command: |
+            input=$(cat)
+            echo "STDIN was: $input"
+            echo "ARGS are $1 $2"
+          arguments:
+          - Foo
+          - Bar
+          pullPolicy: always
+```
+
+## Script Process
+
+Enables the execution of custom scripts or code within a workflow.
+
+### Properties
+
+<ParamField path="language" type="string" required>
+  The language of the script to run.
+  
+  Supported values: `js` (ES2024), `python` (3.13.x)
+</ParamField>
+
+<ParamField path="code" type="string">
+  The script's code. Required if `source` has not been set.
+</ParamField>
+
+<ParamField path="source" type="externalResource">
+  The script's resource. Required if `code` has not been set.
+</ParamField>
+
+<ParamField path="stdin" type="string">
+  A runtime expression, if any, to pass to the script as standard input (stdin).
+</ParamField>
+
+<ParamField path="arguments" type="string[]">
+  A list of the arguments, if any, to pass to the script as argv.
+</ParamField>
+
+<ParamField path="environment" type="map">
+  A key/value mapping of the environment variables, if any, to use when running the configured script process.
+</ParamField>
+
+<Warning>
+To ensure cross-compatibility, Serverless Workflow strictly limits the versions of supported scripting languages. These versions may evolve with future releases. If you wish to use a different version of a language, you may do so by utilizing the container process.
+
+**Supported languages:**
+
+| Language | Version |
+|----------|----------|
+| JavaScript | ES2024 |
+| Python | 3.13.x |
+</Warning>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: run-script-example
+  version: 1.0.0
+do:
+  - runScript:
+      run:
+        script:
+          language: javascript
+          arguments:
+          - hello
+          - world
+          code: |
+            const [_, __, arg0, arg1] = process.argv;
+            console.log('arg > ', arg0, arg1)
+```
+
+## Shell Process
+
+Enables the execution of shell commands within a workflow.
+
+### Properties
+
+<ParamField path="command" type="string" required>
+  The shell command to run.
+</ParamField>
+
+<ParamField path="stdin" type="string">
+  A runtime expression, if any, to pass to the shell command as standard input (stdin).
+</ParamField>
+
+<ParamField path="arguments" type="string[]">
+  A list of the arguments, if any, to pass to the shell command as argv.
+</ParamField>
+
+<ParamField path="environment" type="map">
+  A key/value mapping of the environment variables, if any, to use when running the configured process.
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: run-shell-example
+  version: '0.1.0'
+do:
+  - setInput:
+      set:
+        message: Hello World
+  - runShell:
+      input:
+        from: ${ .message }
+      run:
+        shell:
+          stdin: ${ . }
+          command: |
+            input=$(cat)
+            echo "STDIN was: $input"
+            echo "ARGS are $1 $2"
+          arguments:
+          - Foo
+          - Bar
+```
+
+## Workflow Process
+
+Enables the invocation and execution of nested workflows within a parent workflow.
+
+### Properties
+
+<ParamField path="name" type="string" required>
+  The name of the workflow to run.
+</ParamField>
+
+<ParamField path="version" type="string" default="latest" required>
+  The version of the workflow to run.
+</ParamField>
+
+<ParamField path="input" type="any">
+  The data, if any, to pass as input to the workflow to execute. The value should be validated against the target workflow's input schema, if specified.
+</ParamField>
+
+### Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: run-workflow-example
+  version: '0.1.0'
+do:
+  - startWorkflow:
+      run:
+        workflow:
+          namespace: another-one
+          name: do-stuff
+          version: '0.1.0'
+          input:
+            foo: bar
+```
+
+## Overview Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: run-example
+  version: '0.1.0'
+do:
+  - runContainer:
+      run:
+        container:
+          image: fake-image
+
+  - runScript:
+      run:
+        script:
+          language: javascript
+          code: >
+            Some cool multiline script
+
+  - runShell:
+      run:
+        shell:
+          command: 'echo "Hello, ${ .user.name }"'
+
+  - runWorkflow:
+      run:
+        workflow:
+          namespace: another-one
+          name: do-stuff
+          version: '0.1.0'
+          input: {}
+```

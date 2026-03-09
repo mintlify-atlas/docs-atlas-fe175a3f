@@ -1,0 +1,83 @@
+---
+title: Tasks Overview
+description: Complete reference for all Serverless Workflow task types
+---
+
+A task within a workflow represents a discrete unit of work that contributes to achieving the overall objectives defined by the workflow. It encapsulates a specific action or set of actions that need to be executed in a predefined order to advance the workflow towards its completion.
+
+Tasks are designed to be modular and focused, each serving a distinct purpose within the broader context of the workflow. By breaking down the workflow into manageable tasks, organizations can effectively coordinate and track progress, enabling efficient collaboration and ensuring that work is completed in a structured and organized manner.
+
+## Task Types
+
+The Serverless Workflow DSL defines a list of tasks that **must be** supported by all runtimes:
+
+<CardGroup cols={2}>
+  <Card title="Call" icon="phone" href="/reference/tasks/call">
+    Call services and/or functions
+  </Card>
+  <Card title="Do" icon="list-check" href="/reference/tasks/do">
+    Execute subtasks in sequence
+  </Card>
+  <Card title="Emit" icon="broadcast-tower" href="/reference/tasks/emit">
+    Publish events to brokers
+  </Card>
+  <Card title="For" icon="repeat" href="/reference/tasks/for">
+    Iterate over collections
+  </Card>
+  <Card title="Fork" icon="code-branch" href="/reference/tasks/fork">
+    Execute subtasks concurrently
+  </Card>
+  <Card title="Listen" icon="ear-listen" href="/reference/tasks/listen">
+    Wait for external events
+  </Card>
+  <Card title="Raise" icon="triangle-exclamation" href="/reference/tasks/raise">
+    Raise errors and fault workflows
+  </Card>
+  <Card title="Run" icon="play" href="/reference/tasks/run">
+    Execute containers, scripts, shells, or workflows
+  </Card>
+  <Card title="Set" icon="pen-to-square" href="/reference/tasks/set">
+    Set workflow data dynamically
+  </Card>
+  <Card title="Switch" icon="code-compare" href="/reference/tasks/switch">
+    Conditional branching logic
+  </Card>
+  <Card title="Try" icon="shield-halved" href="/reference/tasks/try">
+    Handle errors gracefully with retries
+  </Card>
+  <Card title="Wait" icon="clock" href="/reference/tasks/wait">
+    Pause execution for a duration
+  </Card>
+</CardGroup>
+
+## Common Task Properties
+
+All tasks share the following common properties:
+
+<ParamField path="if" type="string">
+  A runtime expression used to determine whether or not the task should be run. The task is considered skipped if not run, and the raw task input becomes the task's output.
+</ParamField>
+
+<ParamField path="input" type="input">
+  An object used to customize the task's input and to document its schema, if any.
+</ParamField>
+
+<ParamField path="output" type="output">
+  An object used to customize the task's output and to document its schema, if any.
+</ParamField>
+
+<ParamField path="export" type="export">
+  An object used to customize the content of the workflow context.
+</ParamField>
+
+<ParamField path="timeout" type="string | timeout">
+  The configuration of the task's timeout, if any. If a string, must be the name of a timeout defined in the workflow's reusable components.
+</ParamField>
+
+<ParamField path="then" type="flowDirective">
+  The flow directive to execute next. If not set, defaults to `continue`.
+</ParamField>
+
+<ParamField path="metadata" type="map">
+  Additional information about the task.
+</ParamField>

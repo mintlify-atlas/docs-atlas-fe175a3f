@@ -1,0 +1,233 @@
+---
+title: Catalogs
+description: Reference external collections of reusable workflow components
+---
+
+## Overview
+
+A **resource catalog** is an external collection of reusable components, such as functions, that can be referenced and imported into workflows. Catalogs allow workflows to integrate with externally defined resources, making it easier to manage reuse and versioning across different workflows.
+
+Each catalog is defined by an `endpoint` property, specifying the root URL where the resources are hosted, enabling workflows to access external functions and services.
+
+## Catalog Object
+
+<ParamField path="endpoint" type="object" required>
+  The endpoint that defines the root URL at which the catalog is located.
+</ParamField>
+
+### Endpoint Properties
+
+<ParamField path="endpoint.uri" type="string" required>
+  The endpoint's URI.
+</ParamField>
+
+<ParamField path="endpoint.authentication" type="object">
+  The authentication policy to use when accessing the catalog.
+</ParamField>
+
+## Catalog Structure
+
+For portability, catalogs must adhere to a specific file structure, as defined in the [Serverless Workflow Catalog Repository](https://github.com/serverlessworkflow/catalog?tab=readme-ov-file#structure).
+
+## Usage
+
+Catalogs are defined in the workflow's `use` section and can be referenced by name throughout the workflow.
+
+### Basic Catalog Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: catalog-example
+  version: '0.1.0'
+use:
+  catalogs:
+    global:
+      endpoint:
+        uri: https://github.com/serverlessworkflow/catalog
+do:
+  - log:
+      call: log:0.5.2@global
+      with:
+        message: The cataloged custom function has been successfully called
+```
+
+In this example:
+- A catalog named `global` is defined pointing to the Serverless Workflow catalog
+- The `log` function is called using the notation `log:0.5.2@global`
+  - `log` is the function name
+  - `0.5.2` is the version
+  - `@global` references the catalog
+
+### Catalog with Authentication
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: authenticated-catalog-example
+  version: '0.1.0'
+use:
+  catalogs:
+    private:
+      endpoint:
+        uri: https://private-catalog.example.com
+        authentication:
+          basic:
+            username: user
+            password: '012345'
+do:
+  - customFunction:
+      call: myFunction:1.0.0@private
+      with:
+        input: "some data"
+```
+
+### Multiple Catalogs
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: multi-catalog-example
+  version: '0.1.0'
+use:
+  catalogs:
+    global:
+      endpoint:
+        uri: https://github.com/serverlessworkflow/catalog
+    company:
+      endpoint:
+        uri: https://catalog.company.com
+        authentication:
+          bearer:
+            token: ${ .secrets.catalogToken }
+    team:
+      endpoint:
+        uri: https://catalog.team.internal
+        authentication:
+          oauth2:
+            authority: https://auth.company.com
+            grant: client_credentials
+            client:
+              id: workflow-runtime
+              secret: ${ .secrets.oauth2Secret }
+do:
+  - useGlobalFunction:
+      call: log:0.5.2@global
+      with:
+        message: "Using global catalog"
+  - useCompanyFunction:
+      call: emailService:2.1.0@company
+      with:
+        to: user@example.com
+        subject: "Notification"
+  - useTeamFunction:
+      call: dataTransform:1.0.0@team
+      with:
+        data: ${ .input }
+```
+
+### Catalog with OAuth2 Authentication
+
+```yaml
+use:
+  catalogs:
+    enterprise:
+      endpoint:
+        uri: https://enterprise-catalog.example.com
+        authentication:
+          oauth2:
+            authority: https://auth.example.com/oauth2
+            grant: client_credentials
+            client:
+              id: workflow-client
+              secret: ${ .secrets.clientSecret }
+            scopes: [ catalog:read ]
+```
+
+### Catalog with OpenID Connect
+
+```yaml
+use:
+  catalogs:
+    secure:
+      endpoint:
+        uri: https://secure-catalog.example.com
+        authentication:
+          oidc:
+            authority: https://auth.example.com/.well-known/openid-configuration
+            grant: client_credentials
+            client:
+              id: workflow-client
+              secret: ${ .secrets.clientSecret }
+            scopes: [ api ]
+            audiences: [ catalog-service ]
+```
+
+## Calling Cataloged Functions
+
+When calling a function from a catalog, use the following notation:
+
+```
+functionName:version@catalogName
+```
+
+### Examples
+
+```yaml
+do:
+  # Call a specific version from a catalog
+  - callVersioned:
+      call: transform:1.2.3@company
+      with:
+        data: ${ .input }
+  
+  # Call latest version from a catalog
+  - callLatest:
+      call: validate:latest@global
+      with:
+        schema: ${ .schema }
+        data: ${ .data }
+```
+
+## Benefits of Using Catalogs
+
+1. **Reusability**: Share common functions across multiple workflows
+2. **Versioning**: Explicitly control which version of a function to use
+3. **Centralized Management**: Update functions in one place
+4. **Security**: Control access to functions using authentication
+5. **Organization**: Separate concerns (global, company, team catalogs)
+
+## Catalog Best Practices
+
+<Tip>
+  - Use semantic versioning for cataloged functions
+  - Document function inputs and outputs in the catalog
+  - Implement proper authentication for private catalogs
+  - Use different catalogs for different scopes (global, organization, team)
+  - Test catalog connectivity and authentication during workflow deployment
+</Tip>
+
+## External Resources
+
+Catalogs are a specific type of external resource. The endpoint configuration follows the same pattern as other external resources:
+
+```yaml
+endpoint:
+  uri: https://example.com/catalog
+  authentication:
+    # Any supported authentication scheme
+```
+
+## Related Concepts
+
+- **Functions**: Reusable tasks that can be defined in catalogs
+- **Authentication**: Secure access to catalog endpoints
+- **External Resources**: General pattern for referencing external content
+- **Versioning**: Semantic versioning for catalog functions
+
+For more information about catalogs, refer to the:
+- [Serverless Workflow DSL Specification](https://github.com/serverlessworkflow/specification/blob/main/dsl.md#catalogs)
+- [Serverless Workflow Catalog Structure](https://github.com/serverlessworkflow/catalog?tab=readme-ov-file#structure)

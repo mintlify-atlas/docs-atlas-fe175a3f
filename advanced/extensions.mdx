@@ -1,0 +1,245 @@
+---
+title: 'Extensions'
+description: 'Extend workflow functionality with custom logic and cross-cutting concerns'
+---
+
+## Overview
+
+Extensions in Serverless Workflow offer a flexible way to extend the functionality of tasks within a workflow. They allow developers to inject custom logic, perform pre- or post-processing tasks, and modify task behavior dynamically based on runtime conditions. With extensions, developers can enhance workflow capabilities, promote code reuse, and maintain consistency across workflows.
+
+## Use Cases
+
+Extensions can be used to:
+
+1. **Perform logging** before and after task execution
+2. **Intercept HTTP calls** to mock service responses
+3. **Implement custom error handling** or retries
+4. **Apply security checks** or data transformations
+5. **Add monitoring and observability** hooks
+6. **Implement cross-cutting concerns** like authentication or caching
+
+## Extension Properties
+
+Extensions are defined with properties that provide precise control over their application:
+
+### `extend`
+
+Specifies the type of task to extend. This can be:
+- `all` - applies to all tasks
+- A specific task type (e.g., `call`, `set`, `emit`)
+- A combination of task types
+
+### `when`
+
+Conditionally applies the extension based on runtime expressions. This allows you to selectively enable extensions based on:
+- Task properties
+- Runtime context
+- Input data
+- Environment conditions
+
+### `before`
+
+Executes tasks before the extended task runs. These tasks have access to:
+- The task's input
+- The workflow context
+- Runtime information
+
+### `after`
+
+Executes tasks after the extended task completes. These tasks have access to:
+- The task's output
+- The task's input
+- The workflow context
+- Runtime information
+
+## Basic Example: Logging Extension
+
+Here's a simple logging extension that logs before and after every task:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: sample-workflow
+  version: '0.1.0'
+use:
+  extensions:
+    - logging:
+        extend: all
+        before:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: "${ \"Executing task '\($task.reference)'...\" }"
+        after:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: "${ \"Executed task '\($task.reference)'...\" }"
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        uri: https://fake.com/sample
+```
+
+## Advanced Examples
+
+### Conditional Extension
+
+Apply an extension only to specific tasks based on conditions:
+
+```yaml
+use:
+  extensions:
+    - monitoring:
+        extend: call
+        when: ${ .endpoint.uri | contains("production") }
+        before:
+          - recordMetric:
+              call: http
+              with:
+                method: post
+                endpoint: https://metrics.example.com
+                body:
+                  task: ${ $task.name }
+                  timestamp: ${ now() }
+```
+
+### Error Handling Extension
+
+Add custom error handling to all tasks:
+
+```yaml
+use:
+  extensions:
+    - errorHandling:
+        extend: all
+        after:
+          - checkForErrors:
+              if: ${ $output.error != null }
+              emit:
+                event:
+                  type: io.example.error
+                  source: ${ $workflow.definition.name }
+                  data:
+                    task: ${ $task.reference }
+                    error: ${ $output.error }
+```
+
+### Authentication Extension
+
+Inject authentication tokens into HTTP calls:
+
+```yaml
+use:
+  extensions:
+    - authentication:
+        extend: call
+        when: ${ $task.definition.call == "http" }
+        before:
+          - getToken:
+              set:
+                authToken: ${ getAccessToken() }
+```
+
+### Mock Service Extension
+
+Intercept service calls for testing:
+
+```yaml
+use:
+  extensions:
+    - mockServices:
+        extend: call
+        when: ${ $runtime.metadata.environment == "test" }
+        before:
+          - mockResponse:
+              set:
+                mockData:
+                  id: 123
+                  name: "Test User"
+                  email: "test@example.com"
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Keep Extensions Focused">
+    Each extension should have a single, well-defined purpose. This makes them easier to understand, maintain, and reuse across workflows.
+  </Step>
+
+  <Step title="Use Conditional Application">
+    Use the `when` property to apply extensions only where needed. This improves performance and reduces unnecessary processing.
+  </Step>
+
+  <Step title="Document Your Extensions">
+    Clearly document what each extension does, when it applies, and any side effects it may have.
+  </Step>
+
+  <Step title="Test Extensions Independently">
+    Test extensions in isolation before combining them with complex workflows.
+  </Step>
+
+  <Step title="Consider Performance">
+    Be mindful of the performance impact of extensions, especially those that run before or after every task.
+  </Step>
+</Steps>
+
+## Execution Order
+
+When multiple extensions apply to the same task, they are executed in the order they are defined:
+
+1. All applicable `before` tasks from each extension (in definition order)
+2. The actual task being extended
+3. All applicable `after` tasks from each extension (in definition order)
+
+```yaml
+use:
+  extensions:
+    - first:
+        extend: all
+        before:
+          - task1: { ... }  # Executes 1st
+    - second:
+        extend: all
+        before:
+          - task2: { ... }  # Executes 2nd
+do:
+  - mainTask: { ... }      # Executes 3rd
+```
+
+## Frequently Asked Questions
+
+<Accordion title="Can extensions modify task input or output?">
+  Yes! Extensions can modify data through the workflow context. Tasks in the `before` section can update the context before the main task executes, and tasks in the `after` section can transform the output or update the context based on the results.
+</Accordion>
+
+<Accordion title="Can I disable an extension for specific tasks?">
+  While you can't directly disable an extension for a specific task, you can use the `when` property with a conditional expression that excludes certain tasks based on their properties or names.
+</Accordion>
+
+<Accordion title="What happens if an extension task fails?">
+  If a task in the `before` section fails, the main task will not execute. If a task in the `after` section fails, the workflow will fault. Use error handling mechanisms like `try/catch` within your extensions to handle failures gracefully.
+</Accordion>
+
+<Accordion title="Can extensions call other workflows?">
+  Yes! Extension tasks can use the `run` task to execute other workflows, scripts, or containers, giving you complete flexibility in what extensions can do.
+</Accordion>
+
+<Accordion title="How do extensions differ from reusable tasks?">
+  Extensions automatically apply to multiple tasks based on conditions, while reusable tasks must be explicitly called. Extensions are ideal for cross-cutting concerns (logging, monitoring, security), while reusable tasks are better for specific business logic that needs to be repeated.
+</Accordion>
+
+## Related Resources
+
+- [Runtime Expressions](/core-concepts/runtime-expressions)
+- [Task Flow](/core-concepts/task-flow)
+- [Error Handling](/core-concepts/fault-tolerance)

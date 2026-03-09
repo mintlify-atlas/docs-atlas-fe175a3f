@@ -1,0 +1,752 @@
+---
+title: Timeouts
+description: Configuring workflow and task timeouts with duration formats in Serverless Workflow
+---
+
+## Overview
+
+Workflows and tasks can be configured to timeout after a defined amount of time. Timeouts are essential for preventing workflows from hanging indefinitely and ensuring that resources are not consumed by stalled operations.
+
+<Warning>
+  When a timeout occurs, runtimes **must** abruptly interrupt the execution of the workflow/task, and **must** raise an error that, if uncaught, forces the workflow/task to transition to the `faulted` status phase.
+</Warning>
+
+## Timeout Errors
+
+When a timeout occurs, the runtime raises a standardized error:
+
+- **Type**: `https://serverlessworkflow.io/spec/1.0.0/errors/timeout`
+- **Status**: `408` (Request Timeout)
+
+```yaml
+timeoutError:
+  type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+  status: 408
+  title: Timeout
+  detail: The operation exceeded the configured timeout duration
+  instance: /do/longRunningTask
+```
+
+<Info>
+  Timeout errors can be caught and handled like any other error using try-catch blocks.
+</Info>
+
+## Workflow Timeouts
+
+Workflow-level timeouts apply to the entire workflow execution:
+
+### Basic Workflow Timeout
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: timed-workflow
+  version: '1.0.0'
+
+timeout:
+  after:
+    minutes: 30
+
+do:
+  - step1:
+      call: function1
+  - step2:
+      call: function2
+  - step3:
+      call: function3
+```
+
+<ParamField path="timeout.after" type="object" required>
+  Duration object specifying when the workflow should timeout
+</ParamField>
+
+### Workflow Timeout with Error Handling
+
+You cannot directly catch a workflow timeout within the workflow itself, but you can design workflows to be resilient:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: resilient-workflow
+  version: '1.0.0'
+
+timeout:
+  after:
+    hours: 2
+
+do:
+  - processWithTimeout:
+      # Each task has its own timeout to fail faster
+      timeout:
+        after:
+          minutes: 15
+      call: longOperation
+  
+  - handleSuccess:
+      call: successHandler
+```
+
+## Task Timeouts
+
+Individual tasks can have their own timeout configuration:
+
+### Basic Task Timeout
+
+```yaml
+do:
+  - fetchData:
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://api.example.com/data
+      timeout:
+        after:
+          seconds: 30
+```
+
+<ParamField path="timeout.after" type="object" required>
+  Duration object specifying when the task should timeout
+</ParamField>
+
+### Task Timeout with Error Handling
+
+```yaml
+do:
+  - fetchDataWithTimeout:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://api.example.com/large-dataset
+        timeout:
+          after:
+            minutes: 5
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        do:
+          - logTimeout:
+              call: logger
+              with:
+                message: Data fetch timed out after 5 minutes
+          - useCachedData:
+              call: cache
+              with:
+                key: last-known-dataset
+```
+
+### Multiple Tasks with Different Timeouts
+
+```yaml
+do:
+  - quickOperation:
+      call: fastService
+      timeout:
+        after:
+          seconds: 5
+  
+  - mediumOperation:
+      call: standardService
+      timeout:
+        after:
+          seconds: 30
+  
+  - longOperation:
+      call: slowService
+      timeout:
+        after:
+          minutes: 10
+```
+
+## Duration Formats
+
+Serverless Workflow supports multiple duration units for specifying timeouts:
+
+### Duration Units
+
+| Unit | Property | Example |
+|:-----|:---------|:--------|
+| Milliseconds | `milliseconds` | `milliseconds: 500` |
+| Seconds | `seconds` | `seconds: 30` |
+| Minutes | `minutes` | `minutes: 5` |
+| Hours | `hours` | `hours: 2` |
+| Days | `days` | `days: 1` |
+
+### Duration Examples
+
+#### Milliseconds
+
+```yaml
+timeout:
+  after:
+    milliseconds: 500
+```
+
+#### Seconds
+
+```yaml
+timeout:
+  after:
+    seconds: 30
+```
+
+#### Minutes
+
+```yaml
+timeout:
+  after:
+    minutes: 5
+```
+
+#### Hours
+
+```yaml
+timeout:
+  after:
+    hours: 2
+```
+
+#### Days
+
+```yaml
+timeout:
+  after:
+    days: 7
+```
+
+### Combined Duration Units
+
+You can combine multiple duration units:
+
+```yaml
+timeout:
+  after:
+    hours: 2
+    minutes: 30
+    seconds: 45
+```
+
+This creates a timeout of 2 hours, 30 minutes, and 45 seconds (9,045 seconds total).
+
+### Complex Duration Example
+
+```yaml
+processLargeDataset:
+  call: dataProcessor
+  with:
+    dataset: ${ .largeDataset }
+  timeout:
+    after:
+      days: 0
+      hours: 1
+      minutes: 30
+      seconds: 0
+      milliseconds: 0
+```
+
+## Timeout Patterns
+
+### Pattern: Fast-Fail with Fallback
+
+```yaml
+do:
+  - tryPrimaryWithTimeout:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://primary.example.com/api
+        timeout:
+          after:
+            seconds: 5
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        as: timeoutError
+  
+  - useFallback:
+      if: ${ .timeoutError != null }
+      call: http
+      with:
+        method: get
+        endpoint:
+          uri: https://fallback.example.com/api
+      timeout:
+        after:
+          seconds: 10
+```
+
+<Info>
+  This pattern attempts a fast operation first, then falls back to an alternative with a longer timeout if the first times out.
+</Info>
+
+### Pattern: Progressive Timeout
+
+```yaml
+do:
+  - attemptQuick:
+      try:
+        call: processor
+        with:
+          mode: quick
+        timeout:
+          after:
+            seconds: 10
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        as: quickTimeout
+  
+  - attemptStandard:
+      if: ${ .quickTimeout != null }
+      try:
+        call: processor
+        with:
+          mode: standard
+        timeout:
+          after:
+            seconds: 60
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        as: standardTimeout
+  
+  - attemptDeep:
+      if: ${ .standardTimeout != null }
+      call: processor
+      with:
+        mode: deep
+      timeout:
+        after:
+          minutes: 10
+```
+
+<Info>
+  This pattern tries progressively slower processing modes with increasing timeouts.
+</Info>
+
+### Pattern: Timeout with Retry
+
+```yaml
+reliableOperation:
+  try:
+    call: http
+    with:
+      method: post
+      endpoint:
+        uri: https://api.example.com/process
+      body: ${ .data }
+    timeout:
+      after:
+        seconds: 30
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    retry:
+      delay:
+        seconds: 5
+      backoff:
+        exponential:
+          factor: 2
+      limit:
+        attempt:
+          count: 3
+```
+
+<Note>
+  Combining timeouts with retry policies provides robust handling for operations that may occasionally be slow.
+</Note>
+
+### Pattern: Partial Results on Timeout
+
+```yaml
+do:
+  - fetchWithTimeout:
+      try:
+        call: http
+        with:
+          method: get
+          endpoint:
+            uri: https://api.example.com/complete-data
+        timeout:
+          after:
+            seconds: 15
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+        do:
+          - fetchPartialData:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://api.example.com/partial-data
+                query:
+                  limit: 100
+              timeout:
+                after:
+                  seconds: 5
+```
+
+### Pattern: Parallel Operations with Individual Timeouts
+
+```yaml
+do:
+  - fetchFromMultipleSources:
+      fork:
+        compete: true
+        branches:
+          - source1:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://source1.example.com/api
+              timeout:
+                after:
+                  seconds: 10
+          
+          - source2:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://source2.example.com/api
+              timeout:
+                after:
+                  seconds: 15
+          
+          - source3:
+              call: http
+              with:
+                method: get
+                endpoint:
+                  uri: https://source3.example.com/api
+              timeout:
+                after:
+                  seconds: 20
+```
+
+<Info>
+  In compete mode with different timeouts, the fastest source that completes within its timeout wins.
+</Info>
+
+## Timeout Best Practices
+
+<Steps>
+  <Step title="Set realistic timeouts">
+    Base timeout values on actual performance measurements, not arbitrary numbers. Monitor your services to understand typical response times.
+  </Step>
+  
+  <Step title="Use task timeouts over workflow timeouts">
+    Prefer setting timeouts on individual tasks rather than the entire workflow. This provides more granular control and better error messages.
+  </Step>
+  
+  <Step title="Always handle timeout errors">
+    Wrap operations with timeouts in try-catch blocks to handle timeout errors gracefully and provide fallback behavior.
+  </Step>
+  
+  <Step title="Consider different timeout strategies">
+    Use shorter timeouts for fast operations and longer timeouts for heavy processing. Adjust based on the criticality of the operation.
+  </Step>
+  
+  <Step title="Combine with retry policies">
+    When using retries, ensure the total retry time (attempts × delay × backoff factor) doesn't exceed your workflow timeout.
+  </Step>
+  
+  <Step title="Log timeout occurrences">
+    Always log when timeouts occur to help identify performance issues and adjust timeout values accordingly.
+  </Step>
+  
+  <Step title="Test timeout scenarios">
+    Include timeout scenarios in your workflow tests to ensure your error handling works correctly.
+  </Step>
+</Steps>
+
+## Timeout Calculation Examples
+
+### Example 1: Simple Timeout
+
+```yaml
+timeout:
+  after:
+    seconds: 30
+```
+
+Total timeout: **30 seconds**
+
+### Example 2: Combined Units
+
+```yaml
+timeout:
+  after:
+    minutes: 5
+    seconds: 30
+```
+
+Total timeout: **(5 × 60) + 30 = 330 seconds** (5 minutes 30 seconds)
+
+### Example 3: Complex Duration
+
+```yaml
+timeout:
+  after:
+    hours: 2
+    minutes: 15
+    seconds: 45
+    milliseconds: 500
+```
+
+Total timeout: 
+- Hours: 2 × 3600 = 7,200 seconds
+- Minutes: 15 × 60 = 900 seconds
+- Seconds: 45 seconds
+- Milliseconds: 500 milliseconds = 0.5 seconds
+- **Total: 8,145.5 seconds** (2 hours 15 minutes 45.5 seconds)
+
+### Example 4: Days-Based Timeout
+
+```yaml
+timeout:
+  after:
+    days: 1
+    hours: 6
+```
+
+Total timeout: **(1 × 86400) + (6 × 3600) = 108,000 seconds** (30 hours)
+
+## Common Timeout Scenarios
+
+### HTTP API Calls
+
+```yaml
+apiCall:
+  call: http
+  with:
+    method: get
+    endpoint:
+      uri: https://api.example.com/data
+  timeout:
+    after:
+      seconds: 30  # Standard API timeout
+```
+
+### Database Queries
+
+```yaml
+databaseQuery:
+  call: database
+  with:
+    query: SELECT * FROM large_table WHERE condition = true
+  timeout:
+    after:
+      minutes: 5  # Longer timeout for complex queries
+```
+
+### File Processing
+
+```yaml
+processFile:
+  call: fileProcessor
+  with:
+    file: ${ .largeFile }
+  timeout:
+    after:
+      hours: 1  # Extended timeout for large file processing
+```
+
+### Real-time Operations
+
+```yaml
+realtimeCheck:
+  call: realtimeService
+  with:
+    data: ${ .streamData }
+  timeout:
+    after:
+      milliseconds: 500  # Very short timeout for real-time requirements
+```
+
+### Batch Processing
+
+```yaml
+batchProcess:
+  call: batchProcessor
+  with:
+    items: ${ .batchItems }
+  timeout:
+    after:
+      days: 1  # Long-running batch job
+```
+
+## Monitoring and Debugging Timeouts
+
+### Logging Timeout Information
+
+```yaml
+monitoredOperation:
+  try:
+    call: slowService
+    with:
+      data: ${ .inputData }
+    timeout:
+      after:
+        minutes: 5
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    as: timeoutError
+    do:
+      - logTimeoutDetails:
+          call: http
+          with:
+            method: post
+            endpoint:
+              uri: https://logging.example.com/timeouts
+            body:
+              workflowId: ${ $workflow.id }
+              taskName: ${ $task.name }
+              taskReference: ${ $task.reference }
+              startedAt: ${ $task.startedAt.iso8601 }
+              timeoutDuration: 300  # seconds
+              error: ${ .timeoutError }
+```
+
+### Metrics Collection
+
+```yaml
+metricTrackedOperation:
+  try:
+    call: trackedService
+    timeout:
+      after:
+        seconds: 30
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    do:
+      - incrementTimeoutMetric:
+          call: http
+          with:
+            method: post
+            endpoint:
+              uri: https://metrics.example.com/increment
+            body:
+              metric: task_timeouts
+              tags:
+                service: trackedService
+                workflow: ${ $workflow.definition.document.name }
+```
+
+## Common Pitfalls
+
+### Pitfall 1: Too Short Timeouts
+
+```yaml
+# Bad: Unrealistic timeout
+processComplexData:
+  call: complexProcessor
+  with:
+    data: ${ .largeDataset }
+  timeout:
+    after:
+      seconds: 5  # Too short for complex processing
+
+# Good: Realistic timeout
+processComplexData:
+  call: complexProcessor
+  with:
+    data: ${ .largeDataset }
+  timeout:
+    after:
+      minutes: 10  # Appropriate for the operation
+```
+
+### Pitfall 2: No Timeout Error Handling
+
+```yaml
+# Bad: Timeout will fault the workflow
+criticalOperation:
+  call: importantService
+  timeout:
+    after:
+      seconds: 30
+
+# Good: Timeout is handled gracefully
+criticalOperation:
+  try:
+    call: importantService
+    timeout:
+      after:
+        seconds: 30
+  catch:
+    errors:
+      with:
+        type: https://serverlessworkflow.io/spec/1.0.0/errors/timeout
+    do:
+      - handleTimeout:
+          call: fallbackService
+```
+
+### Pitfall 3: Retry Timeout Exceeds Workflow Timeout
+
+```yaml
+# Bad: Total retry time can exceed workflow timeout
+timeout:
+  after:
+    minutes: 5
+
+do:
+  - retryingOperation:
+      try:
+        call: service
+      catch:
+        errors: {}
+        retry:
+          delay:
+            minutes: 2
+          limit:
+            attempt:
+              count: 5  # 5 attempts × 2 minutes = 10 minutes > 5 minute workflow timeout
+
+# Good: Retry times are within workflow timeout
+timeout:
+  after:
+    minutes: 10
+
+do:
+  - retryingOperation:
+      try:
+        call: service
+        timeout:
+          after:
+            seconds: 30  # Individual attempt timeout
+      catch:
+        errors: {}
+        retry:
+          delay:
+            seconds: 10
+          limit:
+            attempt:
+              count: 5  # 5 attempts × 10 seconds delay = ~50 seconds < 10 minute workflow timeout
+```
+
+## Related Topics
+
+- [Workflows](/core/workflows) - Learn about workflow structure and lifecycle
+- [Tasks](/core/tasks) - Understand different task types
+- [Fault Tolerance](/core/fault-tolerance) - Handle timeout errors with try-catch and retry
+- [Runtime Expressions](/core/runtime-expressions) - Use expressions in timeout configuration

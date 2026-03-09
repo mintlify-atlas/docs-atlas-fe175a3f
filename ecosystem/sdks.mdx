@@ -1,0 +1,143 @@
+---
+title: Software Development Kits (SDKs)
+description: Tools for consuming, parsing, validating, and testing Serverless Workflows
+---
+
+The Serverless Workflow SDKs are essential tools designed to assist developers in consuming, parsing, validating, and testing their workflows utilizing the Serverless Workflow DSL.
+
+These SDKs empower developers to seamlessly integrate serverless workflows into their applications, providing robust support for various programming languages. By offering comprehensive functionality, they streamline the development process and enhance workflow management.
+
+## Available SDKs
+
+Explore our SDKs for different programming languages:
+
+<CardGroup cols={2}>
+  <Card title=".NET SDK" icon="microsoft" href="https://github.com/serverlessworkflow/sdk-net">
+    Build and validate workflows in .NET applications
+  </Card>
+  
+  <Card title="Go SDK" icon="golang" href="https://github.com/serverlessworkflow/sdk-go">
+    Integrate workflows into Go applications
+  </Card>
+  
+  <Card title="Java SDK" icon="java" href="https://github.com/serverlessworkflow/sdk-java">
+    Full-featured Java implementation with reference runtime
+  </Card>
+  
+  <Card title="PHP SDK" icon="php" href="https://github.com/serverlessworkflow/sdk-php">
+    Work with workflows in PHP environments
+  </Card>
+  
+  <Card title="Python SDK" icon="python" href="https://github.com/serverlessworkflow/sdk-python">
+    Parse and validate workflows in Python
+  </Card>
+  
+  <Card title="Rust SDK" icon="rust" href="https://github.com/serverlessworkflow/sdk-rust">
+    High-performance workflow handling in Rust
+  </Card>
+  
+  <Card title="TypeScript SDK" icon="js" href="https://github.com/serverlessworkflow/sdk-typescript">
+    Type-safe workflow development for TypeScript/JavaScript
+  </Card>
+</CardGroup>
+
+## SDK Capabilities
+
+All SDKs provide core functionality for working with Serverless Workflows:
+
+### Reading and Writing
+
+- Parse workflow definitions from JSON and YAML formats
+- Serialize workflow objects back to JSON/YAML
+- Support for both programmatic and file-based workflows
+
+### Building
+
+- Programmatic workflow construction using fluent APIs
+- Builder patterns for creating complex workflow structures
+- Type-safe workflow definition (in strongly-typed languages)
+
+### Validation
+
+- Validate workflow definitions against the specification
+- Check for syntax errors and schema compliance
+- Verify task references and data flow
+
+### Testing
+
+- Test workflow definitions before deployment
+- Simulate workflow execution
+- Validate input and output data structures
+
+## Getting Started
+
+Each SDK provides language-specific installation and usage instructions. Visit the repository links above for detailed documentation.
+
+### Basic Usage Example
+
+<CodeGroup>
+```yaml Workflow Definition
+document:
+  dsl: 1.0.0
+  namespace: examples
+  name: hello-world
+  version: 1.0.0
+do:
+  - sayHello:
+      call: http
+      with:
+        method: post
+        uri: https://api.example.com/greet
+```
+
+```typescript TypeScript SDK
+import { Workflow } from '@serverlessworkflow/sdk-typescript';
+
+// Parse workflow from YAML/JSON
+const workflow = Workflow.fromFile('workflow.yaml');
+
+// Validate the workflow
+const errors = workflow.validate();
+
+// Access workflow properties
+console.log(workflow.document.name);
+```
+
+```python Python SDK
+from serverlessworkflow import Workflow
+
+# Load and parse workflow
+workflow = Workflow.from_file('workflow.yaml')
+
+# Validate the workflow
+errors = workflow.validate()
+
+# Access workflow properties
+print(workflow.document.name)
+```
+
+```java Java SDK
+import io.serverlessworkflow.api.Workflow;
+
+// Parse workflow from file
+Workflow workflow = Workflow.fromFile("workflow.yaml");
+
+// Validate the workflow
+List<ValidationError> errors = workflow.validate();
+
+// Access workflow properties
+System.out.println(workflow.getDocument().getName());
+```
+</CodeGroup>
+
+## Contributing
+
+Don't see your favorite language on the list? Shout out to the community about it or, even better, contribute to the ecosystem with a new SDK!
+
+No matter your preferred language, our SDKs provide the tools you need to leverage the power of serverless workflows effectively.
+
+### Resources
+
+- [Specification Repository](https://github.com/serverlessworkflow/specification)
+- [Community Slack](https://slack.cncf.io/) - #serverless-workflow
+- [Contributing Guide](https://github.com/serverlessworkflow/specification/blob/master/contributing.md)

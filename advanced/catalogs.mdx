@@ -1,0 +1,110 @@
+---
+title: 'Catalogs'
+description: 'Organize and share reusable workflow components using resource catalogs'
+---
+
+## Overview
+
+A **resource catalog** is an external collection of reusable components, such as functions, that can be referenced and imported into workflows. The primary purpose of catalogs is to allow workflows to seamlessly integrate with externally defined resources, facilitating better reuse, versioning, and consistency across multiple workflows.
+
+Each catalog is defined by an `endpoint` property that specifies the root URL where the resources are hosted. This enables workflows to access external functions and services from those catalogs.
+
+## File Structure
+
+To ensure portability and standardization, catalogs must follow a specific file structure, which is documented [here](https://github.com/serverlessworkflow/catalog?tab=readme-ov-file#structure). This file structure ensures that runtimes can correctly interpret and resolve the resources contained within a catalog.
+
+### GitHub and GitLab Resolution
+
+If a catalog is hosted in a GitHub or GitLab repository, runtimes are expected to resolve the **raw** machine-readable documents that define the cataloged resources. For example, for the function `log:1.0.0` located in a catalog at `https://github.com/serverlessworkflow/catalog/tree/main`, the function definition URI:
+
+```
+https://github.com/serverlessworkflow/catalog/tree/main/functions/log/1.0.0/function.yaml
+```
+
+Should be transformed by the runtime to point to the raw content of the document:
+
+```
+https://raw.githubusercontent.com/serverlessworkflow/catalog/refs/heads/main/functions/log/1.0.0/function.yaml
+```
+
+This transformation ensures that runtimes can retrieve and process the actual content of the resource definitions in a machine-readable format. It also ensures that authors can use the standard, user-friendly URIs of such Git repositories, making it easier to reference and manage resources without needing to directly use the raw content links.
+
+## Default Catalog
+
+Runtimes may optionally define a **"default" catalog**, which can be used implicitly by any and all workflows, unlike other catalogs which must be explicitly defined at the top level. The default catalog provides authors with a way to define and publish functions directly to their runtime, without any additional overhead or external dependencies.
+
+When using the default catalog, users follow the same format as described above, but with the reserved name `default` for the catalog:
+
+```
+{functionName}:{functionVersion}@default
+```
+
+This allows workflows to call functions from the default catalog without needing to explicitly define it in the workflow definition.
+
+<Note>
+The name `default` should not be used by catalogs explicitly defined at the top level, unless the intent is to override the runtime's default catalog.
+</Note>
+
+How resources in the default catalog are stored and resolved is entirely up to the runtime, and they could be managed in various ways, such as:
+- In a database
+- As files
+- In configuration settings
+- Within a remote dedicated repository
+
+## Using Cataloged Functions
+
+When calling a custom function defined in a catalog, users must follow a specific format:
+
+```
+{functionName}:{functionVersion}@{catalogName}
+```
+
+This format ensures that the function, its version, and the catalog it belongs to are clearly defined, allowing workflows to differentiate between multiple functions with similar names across different catalogs.
+
+### Example: Calling a Cataloged Function
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: catalog-example
+  version: '0.1.0'
+use:
+  catalogs:
+    global:
+      endpoint:
+        uri: https://github.com/serverlessworkflow/catalog
+        authentication:
+          basic:
+            username: user
+            password: '012345'
+do:
+  - log:
+      call: log:0.5.2@global
+      with:
+        message: The cataloged custom function has been successfully called
+```
+
+## Frequently Asked Questions
+
+<Accordion title="What is the difference between a catalog and external resources?">
+  Catalogs are collections of reusable components (like functions) that follow a standardized structure and can be versioned. External resources are specific assets or services (APIs, databases, files) needed by a workflow. Catalogs promote reuse across workflows, while external resources are dependencies for a specific workflow.
+</Accordion>
+
+<Accordion title="Can I use multiple catalogs in a single workflow?">
+  Yes! You can define multiple catalogs in the `use.catalogs` section of your workflow. Each catalog must have a unique name, and you reference functions from different catalogs using the `{functionName}:{version}@{catalogName}` format.
+</Accordion>
+
+<Accordion title="How do I version functions in a catalog?">
+  Functions in catalogs should include semantic versioning in their path structure, such as `/functions/my-function/1.0.0/function.yaml`. When calling the function, you specify the version: `my-function:1.0.0@catalog-name`.
+</Accordion>
+
+<Accordion title="What happens if a cataloged function cannot be found?">
+  If a runtime cannot resolve a cataloged function (due to network issues, incorrect path, or missing resources), it will raise an error and the workflow execution will fault. Ensure catalog endpoints are accessible and function paths are correct.
+</Accordion>
+
+## Related Resources
+
+- [Serverless Workflow Catalog](https://github.com/serverlessworkflow/catalog)
+- [Creating Custom Functions](/advanced/interoperability#creating-custom-functions)
+- [External Resources](/advanced/external-resources)

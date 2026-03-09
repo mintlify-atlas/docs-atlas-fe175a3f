@@ -1,0 +1,201 @@
+---
+title: gRPC Protocol
+description: Call external services using gRPC with the Serverless Workflow gRPC protocol
+---
+
+The gRPC Call enables communication with external systems via the gRPC protocol, enabling efficient and reliable communication between distributed components.
+
+## Overview
+
+gRPC calls allow you to invoke remote procedure calls on gRPC services, supporting both unary and streaming operations.
+
+## Properties
+
+<ParamField path="proto" type="externalResource" required>
+  The proto resource that describes the gRPC service to call.
+  
+  References a Protocol Buffers (.proto) file that defines the service interface.
+</ParamField>
+
+<ParamField path="service.name" type="string" required>
+  The name of the gRPC service to call.
+  
+  Must match a service defined in the proto file.
+</ParamField>
+
+<ParamField path="service.host" type="string" required>
+  The hostname of the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.port" type="integer">
+  The port number of the gRPC service to call.
+</ParamField>
+
+<ParamField path="service.authentication" type="authentication">
+  The authentication policy, or the name of the authentication policy, to use when calling the gRPC service.
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  The name of the gRPC service method to call.
+  
+  Must match a method defined in the specified service.
+</ParamField>
+
+<ParamField path="arguments" type="map[string, any]">
+  A name/value mapping of the method call's arguments, if any.
+  
+  Arguments must match the input message type defined for the method in the proto file.
+</ParamField>
+
+## External Resource
+
+The `proto` property references an external resource with:
+
+<ParamField path="proto.endpoint" type="string | endpoint" required>
+  The endpoint at which to get the proto file.
+  
+  Can be a file:// URI for local files or https:// URI for remote files.
+</ParamField>
+
+<ParamField path="proto.name" type="string">
+  The name, if any, of the defined resource.
+</ParamField>
+
+## Examples
+
+### Basic gRPC Call
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: grpc-example
+  version: '0.1.0'
+do:
+  - greet:
+      call: grpc
+      with:
+        proto:
+          endpoint: file://app/greet.proto
+        service:
+          name: GreeterApi.Greeter
+          host: localhost
+          port: 5011
+        method: SayHello
+        arguments:
+          name: ${ .user.preferredDisplayName }
+```
+
+### With Runtime Expression
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: grpc-dynamic-example
+  version: '0.1.0'
+do:
+  - getUser:
+      call: grpc
+      with:
+        proto:
+          endpoint: file://app/user.proto
+        service:
+          name: UserService
+          host: users.example.com
+          port: 50051
+        method: GetUser
+        arguments:
+          userId: ${ .request.userId }
+          includeProfile: true
+```
+
+### With Authentication
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: grpc-auth-example
+  version: '0.1.0'
+use:
+  authentications:
+    grpcBearer:
+      bearer:
+        token: ${ .credentials.token }
+do:
+  - secureCall:
+      call: grpc
+      with:
+        proto:
+          endpoint: https://example.com/protos/secure-service.proto
+        service:
+          name: SecureService
+          host: secure.example.com
+          port: 443
+          authentication:
+            use: grpcBearer
+        method: ProcessData
+        arguments:
+          data: ${ .payload }
+```
+
+### Remote Proto File
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: grpc-remote-proto
+  version: '0.1.0'
+do:
+  - callExternalService:
+      call: grpc
+      with:
+        proto:
+          endpoint: https://api.example.com/protos/v1/service.proto
+          name: ExternalServiceProto
+        service:
+          name: ExternalService
+          host: api.example.com
+          port: 9090
+        method: Execute
+        arguments:
+          command: ${ .command }
+          parameters: ${ .params }
+```
+
+## Proto File Format
+
+The proto file should be a valid Protocol Buffers definition:
+
+```protobuf
+syntax = "proto3";
+
+package GreeterApi;
+
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloReply {
+  string message = 1;
+}
+```
+
+## Best Practices
+
+- **Version Your Protos**: Keep proto files versioned and accessible
+- **Type Safety**: Ensure arguments match the proto message types exactly
+- **Error Handling**: Wrap gRPC calls in try/catch blocks for robust error handling
+- **Connection Pooling**: Runtimes should reuse connections to the same host:port
+
+## Related
+
+- [HTTP Protocol](/reference/protocols/http) - For REST-based API calls
+- [Authentication](/reference/authentication) - Authentication schemes for gRPC calls
+- [External Resources](/reference/external-resource) - How to reference external resources

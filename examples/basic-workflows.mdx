@@ -1,0 +1,381 @@
+---
+title: Basic Workflow Examples
+description: Fundamental workflow patterns including tasks, data manipulation, and control flow
+---
+
+These examples demonstrate the core building blocks of serverless workflows. Master these patterns to build more complex workflow solutions.
+
+## Simple HTTP Call
+
+The most basic workflow: making a single HTTP request.
+
+```yaml do-single.yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: call-http-shorthand-endpoint
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+```
+
+**What it demonstrates:**
+- Minimal workflow structure with `document` metadata
+- Single task execution using `call: http`
+- Path parameter interpolation with `{petId}` from workflow input
+- Shorthand endpoint notation (string instead of object)
+
+**Use case:** Simple REST API calls where you need to fetch data from a single endpoint.
+
+## Sequential Task Execution
+
+Executing multiple tasks in sequence, passing data between them.
+
+```yaml do-multiple.yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: call-http-shorthand-endpoint
+  version: '0.1.0'
+do:
+  - getPet:
+      call: http
+      with:
+        method: get
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+  - buyPet:
+      call: http
+      with:
+        method: put
+        endpoint: https://petstore.swagger.io/v2/pet/{petId}
+        body: '${ . + { status: "sold" } }'
+```
+
+**What it demonstrates:**
+- Multiple tasks executed in order
+- Data flows automatically from one task to the next
+- Expression language (`${ }`) for data transformation
+- Merging current data with new properties using object spread (`. + { }`)
+
+**Use case:** Multi-step processes where later steps depend on earlier results.
+
+## Data Manipulation with Set
+
+<Tabs>
+  <Tab title="Basic Set">
+    ```yaml set.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: set
+      version: '0.1.0'
+    schedule:
+      on:
+        one:
+          with:
+            type: io.serverlessworkflow.samples.events.trigger.v1
+    do:
+      - initialize:
+          set:
+            startEvent: ${ $workflow.input[0] }
+    ```
+    
+    **What it demonstrates:**
+    - Setting workflow variables with `set` task
+    - Accessing workflow input via `$workflow.input`
+    - Capturing the triggering event for later use
+  </Tab>
+  
+  <Tab title="Complex Set">
+    ```yaml switch-then-string.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: sample-workflow
+      version: 0.1.0
+    do:
+      - processOrder:
+          switch:
+            - case1:
+                when: .orderType == "electronic"
+                then: processElectronicOrder
+            - case2:
+                when: .orderType == "physical"
+                then: processPhysicalOrder
+            - default:
+                then: handleUnknownOrderType
+      - processElectronicOrder:
+          set:
+            validate: true
+            status: fulfilled
+          then: exit
+      - processPhysicalOrder:
+          set:
+            inventory: clear
+            items: 1
+            address: Elmer St
+          then: exit
+      - handleUnknownOrderType:
+          set:
+            log: warn
+            message: something's wrong
+    ```
+    
+    **What it demonstrates:**
+    - Using `set` to update multiple fields at once
+    - Flow control with `then: exit` to end workflow
+    - Setting different data based on workflow path
+  </Tab>
+</Tabs>
+
+**Use case:** Initializing variables, storing intermediate results, or preparing data for subsequent tasks.
+
+## Conditional Execution
+
+Executing tasks based on runtime conditions.
+
+```yaml conditional-task.yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: conditional-task
+  version: '0.1.0'
+do:
+  - raiseErrorIfUnderage:
+      if: .customer.age < 18
+      raise:
+        error:
+          type: https://superbet-casinos.com/customer/access-forbidden
+          status: 400
+          title: Access Forbidden
+      then: end
+  - placeBet:
+      call: http
+      with:
+        method: post
+        endpoint: https://superbet-casinos.com/api/bet/on/football
+        body:
+          customer: .customer
+          bet: .bet
+```
+
+**What it demonstrates:**
+- Conditional task execution with `if` clause
+- Early termination using `then: end`
+- Preventing subsequent tasks from running when condition is met
+- Inline error raising for validation
+
+**Use case:** Input validation, access control, or conditional business logic.
+
+## Iteration with For Loop
+
+Processing collections of items.
+
+```yaml for.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: for-example
+  version: '0.1.0'
+do:
+  - checkup:
+      for:
+        each: pet
+        in: .pets
+        at: index
+      while: .vet != null
+      do:
+        - waitForCheckup:
+            listen:
+              to:
+                one:
+                  with:
+                    type: com.fake.petclinic.pets.checkup.completed.v2
+            output:
+              as: '.pets + [{ "id": $pet.id }]'
+```
+
+**What it demonstrates:**
+- Iterating over collections with `for`
+- Naming the iteration variable (`each: pet`)
+- Accessing the loop index (`at: index`)
+- Conditional looping with `while`
+- Nested tasks within the loop body
+- Building up results with output transformation
+
+**Use case:** Processing arrays of data, batch operations, or iterative workflows.
+
+## Parallel Execution with Fork
+
+Executing multiple tasks concurrently.
+
+```yaml fork.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: fork-example
+  version: '0.1.0'
+do:
+  - raiseAlarm:
+      fork:
+        compete: true
+        branches:
+          - callNurse:
+              call: http
+              with:
+                method: put
+                endpoint: https://fake-hospital.com/api/v3/alert/nurses
+                body:
+                  patientId: ${ .patient.fullName }
+                  room: ${ .room.number }
+          - callDoctor:
+              call: http
+              with:
+                method: put
+                endpoint: https://fake-hospital.com/api/v3/alert/doctor
+                body:
+                  patientId: ${ .patient.fullName }
+                  room: ${ .room.number }
+```
+
+**What it demonstrates:**
+- Parallel task execution with `fork`
+- Competitive completion mode (`compete: true`) - first to complete wins
+- Multiple branches running simultaneously
+- Shared data access across branches
+
+**Use case:** Parallel API calls, race conditions, or simultaneous notifications.
+
+## Workflow Composition
+
+Calling subworkflows for modularity and reuse.
+
+```yaml run-subflow.yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: run-subflow
+  version: '0.1.0'
+do:
+  - registerCustomer:
+      run:
+        workflow:
+          namespace: test
+          name: register-customer
+          version: '0.1.0'
+          input:
+            customer: .user
+```
+
+**What it demonstrates:**
+- Invoking child workflows with `run: workflow`
+- Fully qualified workflow reference (namespace, name, version)
+- Passing data to subworkflows via `input`
+- Data transformation when calling subworkflows (`.user` mapped to `customer`)
+
+**Use case:** Breaking down complex workflows, reusing common logic, or organizing workflow libraries.
+
+## Container Execution
+
+Running containerized workloads within workflows.
+
+<Tabs>
+  <Tab title="Basic Container">
+    ```yaml run-container.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: test
+      name: run-container
+      version: '0.1.0'
+    do:
+      - runContainer:
+          run:
+            container:
+              image: hello-world
+    ```
+  </Tab>
+  
+  <Tab title="With Arguments">
+    ```yaml run-container-stdin-and-arguments.yaml
+    document:
+      dsl: '1.0.3'
+      namespace: examples
+      name: run-container-with-stdin-and-arguments
+      version: '0.1.0'
+    do:
+      - setInput:
+          set:
+            message: Hello, World!
+      - runContainer:
+          input:
+            from: ${ .message }
+          run:
+            container:
+              image: alpine:latest
+              command:
+              - /bin/sh
+              - -c
+              args:
+              - |
+                echo "Container received STDIN: $(cat)"
+                echo "First argument: $1"
+                echo "Second argument: $2"
+              - arg1
+              - arg2
+    ```
+  </Tab>
+  
+  <Tab title="Shell Execution">
+    ```yaml run-shell-stdin-and-arguments.yaml
+    document:
+      dsl: 1.0.3
+      namespace: examples
+      name: run-shell-with-stdin-and-arguments
+      version: 1.0.0
+    do:
+      - setInput:
+          set:
+            message: Hello World
+      - runShell:
+          input:
+            from: ${ .message }
+          run:
+            shell:
+              stdin: ${ . }
+              command: |
+                input=$(cat)
+                echo "STDIN was: $input"
+                echo "ARGS are $1 $2"
+              arguments:
+              - Foo
+              - Bar
+    ```
+  </Tab>
+</Tabs>
+
+**What they demonstrate:**
+- Running containers with `run: container`
+- Executing shell commands with `run: shell`
+- Passing data via stdin
+- Providing command-line arguments
+- Capturing container/shell output
+
+**Use case:** Running specialized tools, data processing scripts, or legacy applications.
+
+## Summary
+
+These basic patterns form the foundation of serverless workflows:
+
+- **Tasks** - The atomic units of work (HTTP calls, data operations, etc.)
+- **Sequencing** - Tasks execute in order by default
+- **Conditionals** - Use `if` to execute tasks selectively
+- **Iteration** - Process collections with `for` loops
+- **Parallelism** - Use `fork` for concurrent execution
+- **Composition** - Build complex workflows from simpler ones
+- **Containers** - Integrate containerized workloads
+
+Combine these patterns to create sophisticated workflow solutions for your specific use cases.

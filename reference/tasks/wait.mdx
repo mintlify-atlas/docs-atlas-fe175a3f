@@ -1,0 +1,26 @@
+---
+title: Wait Task
+description: Pause workflow execution for a specified duration
+---
+
+Allows workflows to pause or delay their execution for a specified period of time.
+
+## Properties
+
+<ParamField path="wait" type="string | duration" required>
+  The amount of time to wait. If a string, must be a valid ISO 8601 duration expression.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: wait-example
+  version: '0.1.0'
+do:
+  - waitAWhile:
+      wait:
+        seconds: 10
+```

@@ -1,0 +1,385 @@
+---
+title: Authentication
+description: Authentication schemes for securing service and resource access in Serverless Workflow
+---
+
+## Overview
+
+Defines the mechanism used to authenticate users and workflows attempting to access a service or a resource. The Serverless Workflow DSL supports multiple authentication schemes to accommodate various security requirements.
+
+## Authentication Object
+
+<ParamField path="use" type="string">
+  The name of the top-level authentication definition to use. Cannot be used by authentication definitions defined at top level.
+</ParamField>
+
+<ParamField path="basic" type="object">
+  The `basic` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="bearer" type="object">
+  The `bearer` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="certificate" type="object">
+  The `certificate` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="digest" type="object">
+  The `digest` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="oauth2" type="object">
+  The `oauth2` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+<ParamField path="oidc" type="object">
+  The `oidc` authentication scheme to use, if any.
+  
+  Required if no other property has been set, otherwise ignored.
+</ParamField>
+
+## Basic Authentication
+
+Defines the fundamentals of a 'basic' authentication.
+
+<ParamField path="username" type="string" required>
+  The username to use.
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  The password to use.
+</ParamField>
+
+### Example
+
+```yaml
+use:
+  authentications:
+    sampleBasic:
+      basic:
+        username: admin
+        password: password123
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication: 
+            use: sampleBasic
+```
+
+## Bearer Authentication
+
+Defines the fundamentals of a 'bearer' authentication.
+
+<ParamField path="token" type="string" required>
+  The bearer token to use.
+</ParamField>
+
+### Example
+
+```yaml
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication:
+            bearer:
+              token: ${ .user.token }
+```
+
+## Digest Authentication
+
+Defines the fundamentals of a 'digest' authentication.
+
+<ParamField path="username" type="string" required>
+  The username to use.
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  The password to use.
+</ParamField>
+
+### Example
+
+```yaml
+use:
+  authentications:
+    sampleDigest:
+      digest:
+        username: admin
+        password: password123
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication: 
+            use: sampleDigest
+```
+
+## OAuth2 Authentication
+
+Defines the fundamentals of an 'oauth2' authentication.
+
+<ParamField path="authority" type="uri-template" required>
+  The URI that references the authority to use when making OAuth2 calls.
+</ParamField>
+
+<ParamField path="endpoints.token" type="uri-template">
+  The relative path to the endpoint for OAuth2 token requests.
+  
+  Defaults to `/oauth2/token`.
+</ParamField>
+
+<ParamField path="endpoints.revocation" type="uri-template">
+  The relative path to the endpoint used to invalidate tokens.
+  
+  Defaults to `/oauth2/revoke`.
+</ParamField>
+
+<ParamField path="endpoints.introspection" type="uri-template">
+  The relative path to the endpoint used to validate and obtain information about a token, typically to check its validity and associated metadata.
+  
+  Defaults to `/oauth2/introspect`.
+</ParamField>
+
+<ParamField path="grant" type="string" required>
+  The grant type to use.
+  
+  Supported values are `authorization_code`, `client_credentials`, `password`, `refresh_token` and `urn:ietf:params:oauth:grant-type:token-exchange`.
+</ParamField>
+
+<ParamField path="client.id" type="string">
+  The client id to use.
+  
+  Required if the `client.authentication` method has **not** been set to `none`.
+</ParamField>
+
+<ParamField path="client.secret" type="string">
+  The client secret to use, if any.
+</ParamField>
+
+<ParamField path="client.assertion" type="string">
+  A JWT containing a signed assertion with your application credentials.
+  
+  Required when `client.authentication` has been set to `private_key_jwt`.
+</ParamField>
+
+<ParamField path="client.authentication" type="string">
+  The client authentication method to use.
+  
+  Supported values are `client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt` or `none`.
+  
+  Defaults to `client_secret_post`.
+</ParamField>
+
+<ParamField path="request.encoding" type="string">
+  The encoding of the token request.
+  
+  Supported values are `application/x-www-form-urlencoded` and `application/json`.
+  
+  Defaults to `application/x-www-form-urlencoded`.
+</ParamField>
+
+<ParamField path="issuers" type="uri-template[]">
+  A list that contains valid issuers that will be used to check against the issuer of generated tokens.
+</ParamField>
+
+<ParamField path="scopes" type="string[]">
+  The scopes, if any, to request the token for.
+</ParamField>
+
+<ParamField path="audiences" type="string[]">
+  The audiences, if any, to request the token for.
+</ParamField>
+
+<ParamField path="username" type="string">
+  The username to use. Used only if the grant type is `Password`.
+</ParamField>
+
+<ParamField path="password" type="string">
+  The password to use. Used only if the grant type is `Password`.
+</ParamField>
+
+<ParamField path="subject" type="object">
+  The security token that represents the identity of the party on behalf of whom the request is being made.
+</ParamField>
+
+<ParamField path="actor" type="object">
+  The security token that represents the identity of the acting party.
+</ParamField>
+
+### Example
+
+```yaml
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication:
+            oauth2:
+              authority: http://keycloak/realms/fake-authority
+              endpoints:
+                token: /oauth2/token
+              grant: client_credentials
+              client:
+                id: workflow-runtime
+                secret: "**********"
+              scopes: [ api ]
+              audiences: [ runtime ]
+```
+
+### OAuth2 Token
+
+Represents the definition of an OAuth2 token.
+
+<ParamField path="token" type="string" required>
+  The security token to use.
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  The type of security token to use.
+</ParamField>
+
+## OpenID Connect Authentication
+
+Defines the fundamentals of an 'oidc' authentication.
+
+<ParamField path="authority" type="uri-template" required>
+  The URI that references the authority to use when making OpenID Connect calls.
+</ParamField>
+
+<ParamField path="grant" type="string" required>
+  The grant type to use.
+  
+  Supported values are `authorization_code`, `client_credentials`, `password`, `refresh_token` and `urn:ietf:params:oauth:grant-type:token-exchange`.
+</ParamField>
+
+<ParamField path="client.id" type="string">
+  The client id to use.
+  
+  Required if the `client.authentication` method has **not** been set to `none`.
+</ParamField>
+
+<ParamField path="client.secret" type="string">
+  The client secret to use, if any.
+</ParamField>
+
+<ParamField path="client.assertion" type="string">
+  A JWT containing a signed assertion with your application credentials.
+  
+  Required when `client.authentication` has been set to `private_key_jwt`.
+</ParamField>
+
+<ParamField path="client.authentication" type="string">
+  The client authentication method to use.
+  
+  Supported values are `client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt` or `none`.
+  
+  Defaults to `client_secret_post`.
+</ParamField>
+
+<ParamField path="request.encoding" type="string">
+  The encoding of the token request.
+  
+  Supported values are `application/x-www-form-urlencoded` and `application/json`.
+  
+  Defaults to `application/x-www-form-urlencoded`.
+</ParamField>
+
+<ParamField path="issuers" type="uri-template[]">
+  A list that contains valid issuers that will be used to check against the issuer of generated tokens.
+</ParamField>
+
+<ParamField path="scopes" type="string[]">
+  The scopes, if any, to request the token for.
+</ParamField>
+
+<ParamField path="audiences" type="string[]">
+  The audiences, if any, to request the token for.
+</ParamField>
+
+<ParamField path="username" type="string">
+  The username to use. Used only if the grant type is `Password`.
+</ParamField>
+
+<ParamField path="password" type="string">
+  The password to use. Used only if the grant type is `Password`.
+</ParamField>
+
+<ParamField path="subject" type="object">
+  The security token that represents the identity of the party on behalf of whom the request is being made.
+</ParamField>
+
+<ParamField path="actor" type="object">
+  The security token that represents the identity of the acting party.
+</ParamField>
+
+### Example
+
+```yaml
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication:
+            oidc:
+              authority: http://keycloak/realms/fake-authority/.well-known/openid-configuration
+              grant: client_credentials
+              client:
+                id: workflow-runtime
+                secret: "**********"
+              scopes: [ api ]
+              audiences: [ runtime ]
+```
+
+## Using Authentication from Secrets
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: authentication-example
+  version: '0.1.0'
+use:
+  secrets:
+    - usernamePasswordSecret
+  authentications:
+    sampleBasicFromSecret:
+      basic:
+        use: usernamePasswordSecret
+do:
+  - sampleTask:
+      call: http
+      with:
+        method: get
+        endpoint: 
+          uri: https://secured.fake.com/sample
+          authentication:
+            use: sampleBasicFromSecret
+```

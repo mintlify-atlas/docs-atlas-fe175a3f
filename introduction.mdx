@@ -1,0 +1,119 @@
+---
+title: Introduction to Serverless Workflow
+description: Learn about the vendor-neutral, open-source DSL for defining and executing serverless workflows
+---
+
+## What is Serverless Workflow?
+
+Serverless Workflow is a vendor-neutral, open-source, and entirely community-driven ecosystem tailored for defining and executing DSL-based workflows in the realm of Serverless technology.
+
+The Serverless Workflow DSL is a high-level language that reshapes the terrain of workflow creation, boasting a design that is ubiquitous, intuitive, imperative, and fluent. Say goodbye to convoluted coding and platform dependencies—now, crafting powerful workflows is effortlessly within reach for everyone!
+
+<Note>
+Serverless Workflow is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) Sandbox level project, approved on July 14, 2020.
+</Note>
+
+## Key Benefits
+
+<CardGroup cols={2}>
+  <Card title="Easy to Use" icon="user-check">
+    Designed for universal understanding, enabling users to quickly grasp workflow concepts and create complex workflows effortlessly
+  </Card>
+  
+  <Card title="Event Driven" icon="bolt">
+    Seamlessly integrate events into workflows with support for various formats, including CloudEvents, allowing for event-driven workflow architectures
+  </Card>
+  
+  <Card title="Service Oriented" icon="network-wired">
+    Integrate with service-oriented architectures, interacting with various services over standard protocols like HTTP, gRPC, OpenAPI, AsyncAPI, and more
+  </Card>
+  
+  <Card title="FaaS Centric" icon="function">
+    Seamlessly invoke functions hosted on various platforms, promoting a function-as-a-service (FaaS) paradigm and enabling microservices architectures
+  </Card>
+  
+  <Card title="Fault Tolerant" icon="shield-check">
+    Easily define error handling strategies to manage and recover from errors during workflow execution, ensuring robustness and reliability
+  </Card>
+  
+  <Card title="Schedulable" icon="calendar">
+    Schedule workflows using CRON expressions or trigger them based on events, providing control over workflow execution timing
+  </Card>
+</CardGroup>
+
+## Additional Features
+
+### Timely
+
+Define timeouts for workflows and tasks to manage execution duration effectively, ensuring your processes don't run indefinitely.
+
+### Interoperable
+
+Integrates seamlessly with different services and resources across platforms, making it ideal for heterogeneous environments.
+
+### Robust
+
+Offers features such as conditional branching, event handling, and looping constructs to handle complex business logic.
+
+### Scalable
+
+Promotes code reusability, maintainability, and scalability across different environments, from development to production.
+
+## Design Philosophy
+
+The Serverless Workflow DSL is crafted with a design philosophy that prioritizes:
+
+- **Linguistic fluency** for enhanced readability and understanding
+- **Imperative verbs** to convey actions directly and clearly
+- **Implicit default behaviors** to reduce redundancy and streamline workflow definitions
+- **Flexibility over strong-typed enumerations** for enhanced extensibility
+- **Universally understood terms** to improve accessibility and comprehension
+
+<Info>
+The DSL allows both inline declaration of components or the creation of reusable elements, granting flexibility in workflow composition.
+</Info>
+
+## Priority of Constituencies
+
+Inspired by the [Priority of Constituencies](https://www.w3.org/TR/2024/NOTE-design-principles-20240718/#priority-of-constituencies) principle from the W3C Design Principles, Serverless Workflow prioritizes:
+
+1. **Authors**: People authoring and reading workflows
+2. **Operators**: People running and operating a runtime implementation
+3. **Implementors**: People implementing a specification-compliant runtime
+4. **Specification writers**: People working on the specifications
+
+If a trade-off needs to be made, author's needs come first. This ensures the DSL remains accessible and practical for those creating workflows.
+
+## Ecosystem Components
+
+The Serverless Workflow ecosystem encompasses a comprehensive suite of components:
+
+<CardGroup cols={2}>
+  <Card title="DSL" icon="code" href="/concepts">
+    The core Domain Specific Language defining the fundamental syntax and semantics
+  </Card>
+  
+  <Card title="SDKs" icon="box">
+    Software Development Kits for .NET, Go, Java, PHP, Python, Rust, and TypeScript
+  </Card>
+  
+  <Card title="Runtimes" icon="server">
+    Dedicated environments for executing workflows, including Apache KIE SonataFlow, Synapse, and more
+  </Card>
+  
+  <Card title="Tooling" icon="tools">
+    Visual Studio Code extension and other utilities to enhance the development experience
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first workflow in minutes
+  </Card>
+  
+  <Card title="Core Concepts" icon="book" href="/concepts">
+    Learn about workflows, tasks, events, and data flow
+  </Card>
+</CardGroup>

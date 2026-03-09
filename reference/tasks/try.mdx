@@ -1,0 +1,76 @@
+---
+title: Try Task
+description: Handle errors gracefully with retry policies
+---
+
+Serves as a mechanism within workflows to handle errors gracefully, potentially retrying failed tasks before proceeding with alternate ones.
+
+## Properties
+
+<ParamField path="try" type="map[string, task]" required>
+  The task(s) to perform.
+</ParamField>
+
+<ParamField path="catch" type="catch" required>
+  Configures the errors to catch and how to handle them.
+</ParamField>
+
+## Catch Configuration
+
+Defines the configuration of a catch clause, which is a concept used to catch errors.
+
+<ParamField path="errors" type="errorFilter">
+  The definition of the errors to catch.
+</ParamField>
+
+<ParamField path="as" type="string" default="error">
+  The name of the runtime expression variable to save the error as.
+</ParamField>
+
+<ParamField path="when" type="string">
+  A runtime expression used to determine whether or not to catch the filtered error.
+</ParamField>
+
+<ParamField path="exceptWhen" type="string">
+  A runtime expression used to determine whether or not to catch the filtered error.
+</ParamField>
+
+<ParamField path="retry" type="string | retryPolicy">
+  The retry policy to use, if any, when catching errors. If a string, must be the name of a retry policy defined in the workflow's reusable components.
+</ParamField>
+
+<ParamField path="do" type="map[string, task]">
+  The definition of the task(s) to run when catching an error.
+</ParamField>
+
+## Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: try-example
+  version: '0.1.0'
+do:
+  - trySomething:
+      try:
+        - invalidHttpCall:
+            call: http
+            with:
+              method: get
+              endpoint: https://
+      catch:
+        errors:
+          with:
+            type: https://serverlessworkflow.io.io/dsl/errors/types/communication
+            status: 503
+        as: error
+        retry:
+          delay:
+            seconds: 3
+          backoff:
+            exponential: {}
+          limit:
+            attempt:
+              count: 5
+```

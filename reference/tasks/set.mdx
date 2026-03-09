@@ -1,0 +1,30 @@
+---
+title: Set Task
+description: Dynamically set workflow data
+---
+
+A task used to set data during workflow execution.
+
+## Properties
+
+<ParamField path="set" type="map | string" required>
+  The data to set. Can be an object or a direct runtime expression.
+</ParamField>
+
+## Examples
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: default
+  name: set-example
+  version: '0.1.0'
+do:
+  - setShape:
+      set:
+        shape: circle
+        size: ${ .configuration.size }
+        fill: ${ .configuration.fill }
+  - setColor:
+      set: ${ .configuration.color }
+```

@@ -1,0 +1,260 @@
+---
+title: Conformance Testing
+description: Verify that implementations adhere to the Serverless Workflow specification
+---
+
+Conformance testing is the process of verifying that an implementation adheres to a given specification. By running the CTK, developers can ensure that their implementations of the Serverless Workflow DSL behave as expected and meet the defined standards.
+
+This is crucial for maintaining **interoperability** and **consistency** across different implementations of the Serverless Workflow specification.
+
+## Why Conformance Testing?
+
+Conformance testing provides:
+
+### Interoperability
+
+Ensure that workflows written for one runtime can run on another compliant runtime without modification.
+
+### Consistency
+
+Maintain consistent behavior across different implementations of the specification.
+
+### Quality Assurance
+
+Validate that your implementation correctly handles all aspects of the DSL.
+
+### Trust
+
+Demonstrate to users that your implementation is fully compliant with the specification.
+
+## Getting Started
+
+### 1. Clone the Repository
+
+Start by cloning the Serverless Workflow specification repository:
+
+```bash
+git clone https://github.com/serverlessworkflow/specification.git
+cd specification/ctk
+```
+
+### 2. Review Test Features
+
+Explore the available Gherkin feature files:
+
+```bash
+ls features/
+```
+
+Each feature file tests specific aspects of the DSL:
+
+- `call-http.feature` - HTTP service invocation
+- `call-grpc.feature` - gRPC protocol support
+- `data-flow.feature` - Data filtering and transformation
+- `error-handling.feature` - Error handling and recovery
+- `event-processing.feature` - Event consumption and emission
+- And many more...
+
+### 3. Install Dependencies
+
+Set up the testing framework for your language of choice. The CTK uses Gherkin, which is supported by numerous test runners:
+
+<Tabs>
+  <Tab title="Java">
+    ```xml
+    <!-- Maven pom.xml -->
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-java</artifactId>
+      <version>7.x.x</version>
+      <scope>test</scope>
+    </dependency>
+    ```
+  </Tab>
+  
+  <Tab title="JavaScript/TypeScript">
+    ```bash
+    npm install --save-dev @cucumber/cucumber
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```bash
+    pip install behave
+    ```
+  </Tab>
+  
+  <Tab title=".NET">
+    ```bash
+    dotnet add package SpecFlow
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```bash
+    go get github.com/cucumber/godog
+    ```
+  </Tab>
+</Tabs>
+
+### 4. Implement Step Definitions
+
+Create step definitions that connect the Gherkin scenarios to your runtime implementation.
+
+#### Example Step Definition (TypeScript)
+
+```typescript
+import { Given, When, Then } from '@cucumber/cucumber';
+import { MyWorkflowRuntime } from './my-runtime';
+
+let runtime: MyWorkflowRuntime;
+let workflowDefinition: string;
+let workflowResult: any;
+
+Given('a workflow with definition:', function (definition: string) {
+  workflowDefinition = definition;
+  runtime = new MyWorkflowRuntime();
+});
+
+Given('the workflow input is:', function (input: string) {
+  runtime.setInput(JSON.parse(input));
+});
+
+When('the workflow is executed', async function () {
+  workflowResult = await runtime.execute(workflowDefinition);
+});
+
+Then('the workflow should complete', function () {
+  expect(workflowResult.status).toBe('completed');
+});
+```
+
+### 5. Run the Tests
+
+Execute the test suite using your chosen test runner:
+
+<Tabs>
+  <Tab title="JavaScript/TypeScript">
+    ```bash
+    npx cucumber-js
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```bash
+    behave
+    ```
+  </Tab>
+  
+  <Tab title="Java">
+    ```bash
+    mvn test
+    ```
+  </Tab>
+  
+  <Tab title=".NET">
+    ```bash
+    dotnet test
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```bash
+    go test
+    ```
+  </Tab>
+</Tabs>
+
+### 6. Review Results
+
+After running the tests, review the results to ensure your implementation passes all scenarios:
+
+```bash
+45 scenarios (45 passed)
+234 steps (234 passed)
+```
+
+Any failures indicate deviations from the Serverless Workflow specification that need to be addressed.
+
+## Test Organization
+
+The CTK organizes tests by feature area:
+
+| Feature Area | Description |
+|--------------|-------------|
+| **Task Execution** | HTTP, gRPC, OpenAPI, AsyncAPI, script, and container tasks |
+| **Data Flow** | Input/output filtering, transformation, and context management |
+| **Error Handling** | Retries, error propagation, and fault recovery |
+| **Control Flow** | Conditional, parallel, and iterative execution |
+| **Events** | Event consumption, emission, correlation, and streaming |
+| **Timing** | Timeouts, delays, and CRON-based scheduling |
+| **Extensions** | Custom task types and execution interceptors |
+
+## Debugging Failed Tests
+
+When tests fail:
+
+1. **Read the Scenario**: Understand what behavior is being tested
+2. **Check the Error Message**: Identify which assertion failed
+3. **Review the DSL**: Ensure you're implementing the feature correctly
+4. **Add Logging**: Instrument your implementation to trace execution
+5. **Compare with Examples**: Look at reference implementations
+6. **Ask the Community**: Get help on Slack if you're stuck
+
+## Continuous Integration
+
+Integrate CTK testing into your CI/CD pipeline:
+
+### GitHub Actions Example
+
+```yaml
+name: CTK Conformance Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Checkout CTK
+        run: |
+          git clone https://github.com/serverlessworkflow/specification.git
+          cp -r specification/ctk/features ./features
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run CTK tests
+        run: npm test
+```
+
+## Certification
+
+Once your implementation passes all CTK tests, you can:
+
+1. **Document Compliance**: Note which specification version you conform to
+2. **Share Results**: Publish test results to demonstrate conformance
+3. **Join the Ecosystem**: Add your implementation to the official list
+4. **Get Recognition**: Receive community recognition for compliance
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="CTK Repository" icon="github" href="https://github.com/serverlessworkflow/specification/tree/main/ctk">
+    Access all test features and documentation
+  </Card>
+  
+  <Card title="Writing Tests" icon="pen" href="/ecosystem/ctk/bdd">
+    Learn how to write new test scenarios
+  </Card>
+  
+  <Card title="Community Slack" icon="slack" href="https://slack.cncf.io/">
+    Get help on #serverless-workflow
+  </Card>
+  
+  <Card title="DSL Reference" icon="book" href="/dsl/reference">
+    Complete DSL specification reference
+  </Card>
+</CardGroup>

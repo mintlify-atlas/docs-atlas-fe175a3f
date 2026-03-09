@@ -1,0 +1,348 @@
+---
+title: Use
+description: Reference for defining reusable workflow components
+---
+
+The `use` property defines the workflow's reusable components, including authentication policies, catalogs, errors, extensions, functions, retry policies, secrets, and timeouts. These components can be referenced throughout the workflow, promoting reusability and maintainability.
+
+## Properties
+
+<ParamField path="authentications" type="map[string, authentication]">
+  A name/value mapping of the workflow's reusable authentication policies.
+  
+  See [Authentication](#authentication) for details on supported authentication types.
+</ParamField>
+
+<ParamField path="catalogs" type="map[string, catalog]">
+  A name/value mapping of the workflow's reusable resource catalogs.
+  
+  Catalogs allow workflows to integrate with externally defined resources.
+</ParamField>
+
+<ParamField path="errors" type="map[string, error]">
+  A name/value mapping of the workflow's reusable errors.
+  
+  Define common error definitions that can be referenced throughout the workflow.
+</ParamField>
+
+<ParamField path="extensions" type="extension[]">
+  A list of the workflow's reusable extensions.
+  
+  Extensions enable execution of tasks before or after other tasks.
+</ParamField>
+
+<ParamField path="functions" type="map[string, task]">
+  A name/value mapping of the workflow's reusable tasks.
+  
+  Define functions that can be called multiple times throughout the workflow.
+</ParamField>
+
+<ParamField path="retries" type="map[string, retryPolicy]">
+  A name/value mapping of the workflow's reusable retry policies.
+  
+  Define retry strategies that can be applied to different tasks.
+</ParamField>
+
+<ParamField path="secrets" type="string[]">
+  A list containing the workflow's secrets.
+  
+  Reference secrets that the workflow requires for execution.
+</ParamField>
+
+<ParamField path="timeouts" type="map[string, timeout]">
+  A name/value mapping of the workflow's reusable timeouts.
+  
+  Define timeout configurations that can be referenced by tasks.
+</ParamField>
+
+## Authentication
+
+Defines authentication mechanisms for accessing services and resources.
+
+### Basic Authentication
+
+<ParamField path="basic.username" type="string" required>
+  The username to use.
+</ParamField>
+
+<ParamField path="basic.password" type="string" required>
+  The password to use.
+</ParamField>
+
+### Bearer Authentication
+
+<ParamField path="bearer.token" type="string" required>
+  The bearer token to use.
+</ParamField>
+
+### OAuth2 Authentication
+
+<ParamField path="oauth2.authority" type="uri-template" required>
+  The URI that references the authority to use when making OAuth2 calls.
+</ParamField>
+
+<ParamField path="oauth2.grant" type="string" required>
+  The grant type to use.
+  
+  **Supported values:** `authorization_code`, `client_credentials`, `password`, `refresh_token`, `urn:ietf:params:oauth:grant-type:token-exchange`
+</ParamField>
+
+<ParamField path="oauth2.client.id" type="string">
+  The client id to use.
+  
+  Required if `client.authentication` has not been set to `none`.
+</ParamField>
+
+<ParamField path="oauth2.client.secret" type="string">
+  The client secret to use, if any.
+</ParamField>
+
+<ParamField path="oauth2.scopes" type="string[]">
+  The scopes, if any, to request the token for.
+</ParamField>
+
+<ParamField path="oauth2.audiences" type="string[]">
+  The audiences, if any, to request the token for.
+</ParamField>
+
+### OpenID Connect Authentication
+
+<ParamField path="oidc.authority" type="uri-template" required>
+  The URI that references the authority to use when making OpenIdConnect calls.
+</ParamField>
+
+<ParamField path="oidc.grant" type="string" required>
+  The grant type to use.
+  
+  **Supported values:** `authorization_code`, `client_credentials`, `password`, `refresh_token`, `urn:ietf:params:oauth:grant-type:token-exchange`
+</ParamField>
+
+<ParamField path="oidc.client.id" type="string">
+  The client id to use.
+</ParamField>
+
+<ParamField path="oidc.client.secret" type="string">
+  The client secret to use, if any.
+</ParamField>
+
+## Catalog
+
+A resource catalog is an external collection of reusable components that can be referenced and imported into workflows.
+
+<ParamField path="endpoint" type="endpoint" required>
+  The endpoint that defines the root URL at which the catalog is located.
+</ParamField>
+
+## Extension
+
+Extensions enable the execution of tasks prior to those they extend, offering the flexibility to potentially bypass the extended task entirely.
+
+<ParamField path="extend" type="string" required>
+  The type of task to extend.
+  
+  **Supported values:** `call`, `composite`, `emit`, `extension`, `for`, `listen`, `raise`, `run`, `set`, `switch`, `try`, `wait`, `all`
+</ParamField>
+
+<ParamField path="when" type="string">
+  A runtime expression used to determine whether or not the extension should apply in the specified context.
+</ParamField>
+
+<ParamField path="before" type="task[]">
+  The list of tasks to execute, if any, before the extended task.
+</ParamField>
+
+<ParamField path="after" type="task[]">
+  The list of tasks to execute, if any, after the extended task.
+</ParamField>
+
+## Examples
+
+### Authentication Policies
+
+```yaml
+use:
+  authentications:
+    # Basic authentication
+    sampleBasic:
+      basic:
+        username: admin
+        password: password123
+    
+    # OAuth2 authentication
+    petStoreOAuth2:
+      oauth2: 
+        authority: https://petstore.swagger.io/.well-known/openid-configuration
+        grant: client_credentials
+        client:
+          id: workflow-runtime
+          secret: "**********"
+        scopes: [ api ]
+        audiences: [ runtime ]
+    
+    # Bearer authentication
+    apiToken:
+      bearer:
+        token: ${ .secrets.apiToken }
+```
+
+### Reusable Functions
+
+```yaml
+use:
+  functions:
+    getAvailablePets:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findByStatus
+        parameters:
+          status: available
+    
+    logMessage:
+      call: http
+      with:
+        method: post
+        endpoint: https://fake.log.collector.com
+        body:
+          message: ${ . }
+```
+
+### Extensions
+
+```yaml
+use:
+  extensions:
+    # Logging extension that applies to all tasks
+    - externalLogging:
+        extend: all
+        before:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: ${ "Executing task '\($task.reference)'..." }
+        after:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: ${ "Executed task '\($task.reference)'..." }
+    
+    # Mock service extension for testing
+    - mockService:
+        extend: call
+        when: $task.call == "http" and ($task.with.uri != null and ($task.with.uri | startswith("https://mocked.service.com")))
+        before:
+          - intercept:
+              set:
+                statusCode: 200
+                headers:
+                  Content-Type: application/json
+                content:
+                  foo:
+                    bar: baz
+              then: exit
+```
+
+### Catalogs
+
+```yaml
+use:
+  catalogs:
+    global:
+      endpoint:
+        uri: https://github.com/serverlessworkflow/catalog
+        authentication:
+          basic:
+            username: user
+            password: '012345'
+```
+
+### Retry Policies
+
+```yaml
+use:
+  retries:
+    standardRetry:
+      delay:
+        seconds: 3
+      backoff:
+        exponential: {}
+      limit:
+        attempt:
+          count: 5
+```
+
+### Secrets
+
+```yaml
+use:
+  secrets:
+    - my-oauth2-secret
+    - database-credentials
+    - api-keys
+```
+
+### Timeouts
+
+```yaml
+use:
+  timeouts:
+    shortTimeout:
+      after:
+        seconds: 30
+    longTimeout:
+      after:
+        minutes: 5
+```
+
+## Complete Example
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: test
+  name: comprehensive-use-example
+  version: '0.1.0'
+use:
+  secrets:
+    - my-oauth2-secret
+  authentications:
+    petStoreOAuth2:
+      oauth2: 
+        authority: https://petstore.swagger.io/.well-known/openid-configuration
+        grant: client_credentials
+        client:
+          id: workflow-runtime
+          secret: "**********"
+        scopes: [ api ]
+        audiences: [ runtime ]
+  extensions:
+    - externalLogging:
+        extend: all
+        before:
+          - sendLog:
+              call: http
+              with:
+                method: post
+                endpoint: https://fake.log.collector.com
+                body:
+                  message: ${ "Executing task '\($task.reference)'..." }
+  functions:
+    getAvailablePets:
+      call: openapi
+      with:
+        document:
+          endpoint: https://petstore.swagger.io/v2/swagger.json
+        operationId: findByStatus
+        parameters:
+          status: available
+do:
+  - callFunction:
+      call: getAvailablePets
+```
