@@ -1,0 +1,201 @@
+{
+  "projectType": "general",
+  "projectName": "Serverless Workflow",
+  "projectDescription": "A vendor-neutral, open-source specification for defining and executing DSL-based workflows in serverless environments.",
+  "theme": "aspen",
+  "primaryColor": "#ecccc4",
+  "lightColor": "#425e81",
+  "darkColor": "#9aabbc",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core/workflows",
+              "core/tasks",
+              "core/task-flow",
+              "core/data-flow",
+              "core/runtime-expressions",
+              "core/fault-tolerance",
+              "core/timeouts",
+              "core/scheduling",
+              "core/events",
+              "core/authentication"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "advanced/catalogs",
+              "advanced/interoperability",
+              "advanced/extensions",
+              "advanced/external-resources"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/overview",
+              "examples/basic-workflows",
+              "examples/event-driven",
+              "examples/service-orchestration",
+              "examples/error-handling"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "pages": [
+              "use-cases/overview",
+              "use-cases/data-backup",
+              "use-cases/github-automation",
+              "use-cases/ev-charging",
+              "use-cases/ai-content"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Workflow Definition",
+            "pages": [
+              "reference/workflow",
+              "reference/document",
+              "reference/use",
+              "reference/schedule",
+              "reference/input-output"
+            ]
+          },
+          {
+            "group": "Tasks",
+            "pages": [
+              "reference/tasks/overview",
+              "reference/tasks/call",
+              "reference/tasks/do",
+              "reference/tasks/emit",
+              "reference/tasks/for",
+              "reference/tasks/fork",
+              "reference/tasks/listen",
+              "reference/tasks/raise",
+              "reference/tasks/run",
+              "reference/tasks/set",
+              "reference/tasks/switch",
+              "reference/tasks/try",
+              "reference/tasks/wait"
+            ]
+          },
+          {
+            "group": "Integration & Protocols",
+            "pages": [
+              "reference/protocols/http",
+              "reference/protocols/grpc",
+              "reference/protocols/openapi",
+              "reference/protocols/asyncapi",
+              "reference/protocols/custom"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/authentication",
+              "reference/error-handling",
+              "reference/retry-policies",
+              "reference/timeout-config",
+              "reference/event-filters",
+              "reference/catalogs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Ecosystem",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "ecosystem/overview",
+              "ecosystem/sdks",
+              "ecosystem/runtimes",
+              "ecosystem/tooling"
+            ]
+          },
+          {
+            "group": "Conformance",
+            "pages": [
+              "ecosystem/ctk/overview",
+              "ecosystem/ctk/conformance-testing",
+              "ecosystem/ctk/bdd"
+            ]
+          },
+          {
+            "group": "Comparison",
+            "pages": [
+              "ecosystem/comparison"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Get Involved",
+            "pages": [
+              "community/overview",
+              "community/contributing",
+              "community/governance",
+              "community/code-of-conduct"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "community/meetings",
+              "community/support",
+              "community/adoption"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Event-driven workflow orchestration",
+    "Service-oriented architecture integration",
+    "Cloud-agnostic and vendor-neutral",
+    "Fault tolerance with retry and error handling",
+    "CRON-based and event-based scheduling",
+    "Support for HTTP, gRPC, OpenAPI, AsyncAPI",
+    "Runtime expressions with jq and JavaScript",
+    "Extensible with custom functions and catalogs"
+  ],
+  "publicApiSurface": [
+    "Workflow definition (document, use, do, schedule, timeout, input, output)",
+    "Task types (call, do, emit, for, fork, listen, raise, run, set, switch, try, wait)",
+    "Call protocols (HTTP, gRPC, OpenAPI, AsyncAPI, A2A, MCP)",
+    "Authentication schemes (Basic, Bearer, Certificate, Digest, OAuth2, OIDC)",
+    "Error handling (error definitions, retry policies, try-catch)",
+    "Event handling (event filters, consumption strategies, correlation)",
+    "Runtime expressions (jq, JavaScript)",
+    "Catalogs (function catalogs, external resources)",
+    "Extensions (custom functions, non-standard interactions)",
+    "Lifecycle events (workflow and task lifecycle hooks)",
+    "Process execution (container, shell, script, workflow)",
+    "Flow directives (continue, exit, end)",
+    "Timeout configuration (workflow-level, task-level)",
+    "Data flow (input, output, export, filters)",
+    "External resources (authentication policies, schemas)"
+  ]
+}
